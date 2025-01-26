@@ -129,9 +129,9 @@ namespace CluedIn.ExternalSearch.Providers.BvD
 
                 var existingResults = request.GetQueryResults<BvDResponse>(this).ToList();
 
-                bool orbis(string value) => existingResults.Any(r => string.Equals(r.Data.Data.First().ORBISID, value, StringComparison.InvariantCultureIgnoreCase));
+                //bool orbis(string value) => existingResults.Any(r => string.Equals(r.Data.Data.First().ORBISID, value, StringComparison.InvariantCultureIgnoreCase));
                 bool bvd(string value) => existingResults.Any(r => string.Equals(r.Data.Data.First().BVD_ID_NUMBER, value, StringComparison.InvariantCultureIgnoreCase));
-                bool lei(string value) => existingResults.Any(r => string.Equals(r.Data.Data.First().LEI, value, StringComparison.InvariantCultureIgnoreCase));
+                //bool lei(string value) => existingResults.Any(r => string.Equals(r.Data.Data.First().LEI, value, StringComparison.InvariantCultureIgnoreCase));
 
                 var entityType = request.EntityMetaData.EntityType;
 
@@ -144,7 +144,7 @@ namespace CluedIn.ExternalSearch.Providers.BvD
                 var leiId = new HashSet<string>();
                 leiId = request.QueryParameters.GetValue<string, HashSet<string>>(config.LeiId, new HashSet<string>());
 
-                var filteredValues = orbisId.Where(v => !orbis(v)).ToArray();
+                var filteredValues = bvdId.Where(v => !bvd(v)).ToArray();
 
                 if (!filteredValues.Any())
                 {
@@ -154,7 +154,7 @@ namespace CluedIn.ExternalSearch.Providers.BvD
                 {
                     foreach (var value in filteredValues)
                     {
-                        request.CustomQueryInput = orbisId.ElementAt(0);
+                        request.CustomQueryInput = bvdId.ElementAt(0);
                         var cleaner = new BvDNumberCleaner();
                         var sanitizedValue = cleaner.CheckBvDNumber(value);
 
@@ -209,8 +209,6 @@ namespace CluedIn.ExternalSearch.Providers.BvD
                 }
                 else
                 {
-                    // TODO missing try { } catch { } block ...
-
                     vat = WebUtility.UrlEncode(vat);
                     var client = new RestClient("https://api.bvdinfo.com/v1/ComplianceCatalyst4/Companies/data");
                     var request = new RestRequest("?QUERY={\"WHERE\":[{\"BvD9\":\"" + vat + "\"}],\"SELECT\":[\"" + selectProperties + "\"]}",
