@@ -377,9 +377,12 @@ namespace CluedIn.ExternalSearch.Providers.BvD
             IDictionary<string, object> configDict = config.ToDictionary(entry => entry.Key, entry => entry.Value);
             var jobData = new BvDExternalSearchJobData(configDict);
 
-            var vat = WebUtility.UrlEncode("GB765970776");
-            var client = new RestClient("http://www.apilayer.net/api");
-            var request = new RestRequest($"validate?access_key={jobData.ApiToken}&vat_number={vat}&format=1", Method.GET);
+            var vat = WebUtility.UrlEncode("BE0435604729");
+            var client = new RestClient("https://api.bvdinfo.com/v1/ComplianceCatalyst4/Companies/data");
+            var request = new RestRequest("?QUERY={\"WHERE\":[{\"BvD9\":\"" + vat + "\"}],\"SELECT\":[\"" + "NAME" + "\"]}",
+                Method.GET);
+            request.AddHeader("Content-Type", "application/json");
+            request.AddHeader("ApiToken", jobData.ApiToken);
 
             var response = client.ExecuteAsync<BvDResponse>(request).Result;
 
