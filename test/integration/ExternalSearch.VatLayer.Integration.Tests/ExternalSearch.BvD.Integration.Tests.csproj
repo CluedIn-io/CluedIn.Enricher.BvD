@@ -1,0 +1,8 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="CluedIn.Testing.Base" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\ExternalSearch.Providers.VatLayer\ExternalSearch.Providers.BvD.csproj" />
+  </ItemGroup>
+</Project>
