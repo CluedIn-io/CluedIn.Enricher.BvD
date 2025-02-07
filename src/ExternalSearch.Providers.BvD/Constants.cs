@@ -246,7 +246,7 @@ namespace CluedIn.ExternalSearch.Providers.BvD
                     Type = "input",
                     IsRequired = false,
                     Name = KeyName.SelectProperties,
-                    Help = "The properties to be selected from the enrichment result. Empty value will fetch all properties. (e.g., NAME,CITY,ADDRESS_LINE1,...)"
+                    Help = "The properties to be selected from the enrichment result. (e.g., NAME,CITY,ADDRESS_LINE1,...)"
                 }
             }
         };

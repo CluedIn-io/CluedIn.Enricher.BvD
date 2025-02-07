@@ -228,7 +228,7 @@ namespace CluedIn.ExternalSearch.Providers.BvD
                     }
 
                     var selectStatement =  string.IsNullOrEmpty(selectedPropertiesQuery) ? string.Empty : ",\"SELECT\":[\"" + selectedPropertiesQuery + "\"]}";
-                    var request = new RestRequest("?QUERY={\"WHERE\":[{\"BvDID\":\"" + vat + "\"}]," + selectStatement,
+                    var request = new RestRequest("?QUERY={\"WHERE\":[{\"BvDID\":\"" + vat + "\"}]" + selectStatement,
                         Method.GET);
                     request.AddHeader("Content-Type", "application/json");
                     request.AddHeader("ApiToken",  apiToken);
