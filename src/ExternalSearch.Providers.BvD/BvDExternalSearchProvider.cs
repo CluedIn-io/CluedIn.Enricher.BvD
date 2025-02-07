@@ -136,13 +136,22 @@ namespace CluedIn.ExternalSearch.Providers.BvD
                 var entityType = request.EntityMetaData.EntityType;
 
                 var orbisId = new HashSet<string>();
-                orbisId = request.QueryParameters.GetValue<string, HashSet<string>>(config.OrbisId, new HashSet<string>());
+                if (!string.IsNullOrWhiteSpace(config?.OrbisId))
+                {
+                    orbisId = request.QueryParameters.GetValue<string, HashSet<string>>(config.OrbisId, new HashSet<string>());
+                }
 
                 var bvdId = new HashSet<string>();
-                bvdId = request.QueryParameters.GetValue<string, HashSet<string>>(config.BvDId, new HashSet<string>());
+                if (!string.IsNullOrWhiteSpace(config?.BvDId))
+                {
+                    bvdId = request.QueryParameters.GetValue<string, HashSet<string>>(config?.BvDId, new HashSet<string>());
+                }
 
                 var leiId = new HashSet<string>();
-                leiId = request.QueryParameters.GetValue<string, HashSet<string>>(config.LeiId, new HashSet<string>());
+                if (!string.IsNullOrWhiteSpace(config?.LeiId))
+                {
+                    leiId = request.QueryParameters.GetValue<string, HashSet<string>>(config?.LeiId, new HashSet<string>());
+                }
 
                 var filteredValues = bvdId.Where(v => !bvd(v)).ToArray();
 
@@ -210,8 +219,16 @@ namespace CluedIn.ExternalSearch.Providers.BvD
                 else
                 {
                     vat = WebUtility.UrlEncode(vat);
+                    var selectedPropertiesQuery = string.Empty;
                     var client = new RestClient("https://api.bvdinfo.com/v1/ComplianceCatalyst4/Companies/data");
-                    var request = new RestRequest("?QUERY={\"WHERE\":[{\"BvD9\":\"" + vat + "\"}],\"SELECT\":[\"" + selectProperties + "\"]}",
+
+                    if (!string.IsNullOrWhiteSpace(selectProperties))
+                    {
+                        selectedPropertiesQuery = string.Join(", ", selectProperties.Split(',').Select(s => $"\"{s}\""));
+                    }
+
+                    var selectStatement =  string.IsNullOrEmpty(selectedPropertiesQuery) ? string.Empty : ",\"SELECT\":[\"" + selectedPropertiesQuery + "\"]}";
+                    var request = new RestRequest("?QUERY={\"WHERE\":[{\"BvDID\":\"" + vat + "\"}]," + selectStatement,
                         Method.GET);
                     request.AddHeader("Content-Type", "application/json");
                     request.AddHeader("ApiToken",  apiToken);
@@ -379,7 +396,7 @@ namespace CluedIn.ExternalSearch.Providers.BvD
 
             var vat = WebUtility.UrlEncode("BE0435604729");
             var client = new RestClient("https://api.bvdinfo.com/v1/ComplianceCatalyst4/Companies/data");
-            var request = new RestRequest("?QUERY={\"WHERE\":[{\"BvD9\":\"" + vat + "\"}],\"SELECT\":[\"" + "NAME" + "\"]}",
+            var request = new RestRequest("?QUERY={\"WHERE\":[{\"BvDID\":\"" + vat + "\"}],\"SELECT\":[\"" + "NAME" + "\"]}",
                 Method.GET);
             request.AddHeader("Content-Type", "application/json");
             request.AddHeader("ApiToken", jobData.ApiToken);
