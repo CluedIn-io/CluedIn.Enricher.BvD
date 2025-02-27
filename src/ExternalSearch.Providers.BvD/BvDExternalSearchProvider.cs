@@ -121,7 +121,7 @@ namespace CluedIn.ExternalSearch.Providers.BvD
 
                 if (!this.Accepts(config, request.EntityMetaData.EntityType))
                 {
-                    context.Log.LogTrace("Unacceptable entity type from '{EntityName}', entity code '{EntityCode}'", request.EntityMetaData.DisplayName, request.EntityMetaData.EntityType.Code);
+                    context.Log.LogTrace("Unacceptable business domain from '{EntityName}', entity code '{EntityCode}'", request.EntityMetaData.DisplayName, request.EntityMetaData.EntityType.Code);
                     yield break;
                 }
 
@@ -220,14 +220,14 @@ namespace CluedIn.ExternalSearch.Providers.BvD
                 {
                     vat = WebUtility.UrlEncode(vat);
                     var selectedPropertiesQuery = string.Empty;
-                    var client = new RestClient("https://api.bvdinfo.com/v1/ComplianceCatalyst4/Companies/data");
+                    var client = new RestClient("https://api.bvdinfo.com/v1/orbis/Companies/data");
 
                     if (!string.IsNullOrWhiteSpace(selectProperties))
                     {
                         selectedPropertiesQuery = string.Join(", ", selectProperties.Split(',').Select(s => $"\"{s}\""));
                     }
 
-                    var selectStatement =  string.IsNullOrEmpty(selectedPropertiesQuery) ? string.Empty : ",\"SELECT\":[\"" + selectedPropertiesQuery + "\"]}";
+                    var selectStatement =  string.IsNullOrEmpty(selectedPropertiesQuery) ? string.Empty : ",\"SELECT\":[" + selectedPropertiesQuery + "]}";
                     var request = new RestRequest("?QUERY={\"WHERE\":[{\"BvDID\":\"" + vat + "\"}]" + selectStatement,
                         Method.GET);
                     request.AddHeader("Content-Type", "application/json");
