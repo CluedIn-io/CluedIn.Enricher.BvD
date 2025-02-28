@@ -394,9 +394,8 @@ namespace CluedIn.ExternalSearch.Providers.BvD
             IDictionary<string, object> configDict = config.ToDictionary(entry => entry.Key, entry => entry.Value);
             var jobData = new BvDExternalSearchJobData(configDict);
 
-            var vat = WebUtility.UrlEncode("BE0435604729");
-            var client = new RestClient("https://api.bvdinfo.com/v1/ComplianceCatalyst4/Companies/data");
-            var request = new RestRequest("?QUERY={\"WHERE\":[{\"BvDID\":\"" + vat + "\"}],\"SELECT\":[\"" + "NAME" + "\"]}",
+            var client = new RestClient("https://api.bvdinfo.com/v1/orbis/Companies/data");
+            var request = new RestRequest("?QUERY={\"WHERE\":[{\"BvDID\":\"BE0435604729\"}],\"SELECT\":[\"NAME\"]}",
                 Method.GET);
             request.AddHeader("Content-Type", "application/json");
             request.AddHeader("ApiToken", jobData.ApiToken);
@@ -408,41 +407,26 @@ namespace CluedIn.ExternalSearch.Providers.BvD
 
         private ConnectionVerificationResult ConstructVerifyConnectionResponse(IRestResponse<BvDResponse> response)
         {
-            var isSuccessResponse = response.IsSuccessful;
             var errorMessageBase = $"{Constants.ProviderName} returned \"{(int)response.StatusCode} {response.StatusDescription}\".";
             if (response.ErrorException != null)
             {
                 return new ConnectionVerificationResult(false, $"{errorMessageBase} {(!string.IsNullOrWhiteSpace(response.ErrorException.Message) ? response.ErrorException.Message : "This could be due to breaking changes in the external system")}.");
             }
 
-            var responseData = response.Data;
-            if (responseData?.Data != null)
+            if (response.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.Unauthorized)
             {
-                try
-                {
-                    var content = JsonConvert.DeserializeObject<BvDErrorResponse>(response.Content);
-                    if (!string.IsNullOrWhiteSpace(content.Error.Type) && content.Error.Type.Equals("invalid_access_key", StringComparison.OrdinalIgnoreCase) == true)
-                    {
-                        return new ConnectionVerificationResult(false, $"{Constants.ProviderName} returned \"401 Unauthorized\". This could be due to an invalid API key.");
-                    }
-                }
-                catch (Exception exception)
-                {
-                    return new ConnectionVerificationResult(false, $"Error deserializing request. The exception received was:\n {exception.Message}");
-                }
-
-                isSuccessResponse = false;
+                return new ConnectionVerificationResult(false, $"{errorMessageBase} This could be due to invalid API key.");
             }
 
             var regex = new Regex(@"\<(html|head|body|div|span|img|p\>|a href)", RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.IgnorePatternWhitespace);
             var isHtml = regex.IsMatch(response.Content);
 
-            var errorMessage = isSuccessResponse ? string.Empty
+            var errorMessage = response.IsSuccessful ? string.Empty
                 : string.IsNullOrWhiteSpace(response.Content) || isHtml
                     ? $"{errorMessageBase} This could be due to breaking changes in the external system."
                     : $"{errorMessageBase} {response.Content}.";
 
-            return new ConnectionVerificationResult(isSuccessResponse, errorMessage);
+            return new ConnectionVerificationResult(response.IsSuccessful, errorMessage);
         }
 
         private IEntityMetadata CreateMetadata(IExternalSearchQueryResult<BvDResponse> resultItem, IExternalSearchRequest request)
