@@ -55,9 +55,5 @@ steps:
       githubReleaseInMaster: true
       publicReleaseForMaster: true
       executeIntegrationTests: ${{ parameters.runIntegrationTests }}
-      createIntegrationEnvironmentScriptFilePath: "./build/integration-test.ps1"
-      createIntegrationEnvironmentScriptArguments: "-Action SetUp"
-      deleteIntegrationEnvironmentScriptFilePath: "./build/integration-test.ps1"
-      deleteIntegrationEnvironmentScriptArguments: "-Action TearDown"
       publishCodeCoverage: true
       useGitVersionDotNetTool: true
