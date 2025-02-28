@@ -7,6 +7,10 @@
 // </summary>
 // --------------------------------------------------------------------------------------------------------------------
 
+// #define BVD_DEV
+
+#if BVD_DEV
+
 using System;
 using System.Collections.Generic;
 using CluedIn.Core.Data;
@@ -21,7 +25,7 @@ namespace ExternalSearch.BvD.Integration.Tests
 {
     public class BvDTests : BaseExternalSearchTest<BvDExternalSearchProvider>
     {
-        private const string ApiToken = "118edd4591f3cf622af6e72e4eded7ea";
+        private const string ApiToken = "";
 
         [Theory]
         [InlineData("DK36548681")]
@@ -129,3 +133,5 @@ namespace ExternalSearch.BvD.Integration.Tests
         }
     }
 }
+
+#endif
