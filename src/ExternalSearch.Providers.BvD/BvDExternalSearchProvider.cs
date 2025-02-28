@@ -48,24 +48,6 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
         }
     }
 
-    private BvDExternalSearchProvider(IEnumerable<string> tokens)
-        : this(true)
-    {
-        TokenProvider = new RoundRobinTokenProvider(tokens);
-    }
-
-    private BvDExternalSearchProvider(IExternalSearchTokenProvider tokenProvider)
-        : this(true)
-    {
-        TokenProvider = tokenProvider ?? throw new ArgumentNullException(nameof(tokenProvider));
-    }
-
-    private BvDExternalSearchProvider(bool tokenProviderIsRequired)
-        : this()
-    {
-        TokenProviderIsRequired = tokenProviderIsRequired;
-    }
-
     /**********************************************************************************************************
      * METHODS
      **********************************************************************************************************/
