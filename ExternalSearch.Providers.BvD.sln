@@ -49,6 +49,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Provider.ExternalSearch.Pro
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ExternalSearch.BvD.Integration.Tests", "test\integration\ExternalSearch.BvD.Integration.Tests\ExternalSearch.BvD.Integration.Tests.csproj", "{EFA17295-2035-4E40-8C23-0AEE9CA83A1D}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ExternalSearch.BvD.Unit.Tests", "test\unit\ExternalSearch.BvD.Unit.Tests\ExternalSearch.BvD.Unit.Tests.csproj", "{1DDE2384-5496-40A1-963C-AB1F2150B89F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -67,6 +69,10 @@ Global
 		{EFA17295-2035-4E40-8C23-0AEE9CA83A1D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{EFA17295-2035-4E40-8C23-0AEE9CA83A1D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{EFA17295-2035-4E40-8C23-0AEE9CA83A1D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1DDE2384-5496-40A1-963C-AB1F2150B89F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1DDE2384-5496-40A1-963C-AB1F2150B89F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1DDE2384-5496-40A1-963C-AB1F2150B89F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1DDE2384-5496-40A1-963C-AB1F2150B89F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -82,6 +88,7 @@ Global
 		{9FD65D12-0D5B-46B7-AE96-1502E4A45E30} = {B2A52533-7FBF-41FE-A0AF-874FC54300B2}
 		{D2B36432-79F7-41AD-90A8-CF34F2E07A33} = {B2A52533-7FBF-41FE-A0AF-874FC54300B2}
 		{EFA17295-2035-4E40-8C23-0AEE9CA83A1D} = {DBD1964B-DBD9-4C70-96CA-391C34B3D75F}
+		{1DDE2384-5496-40A1-963C-AB1F2150B89F} = {A32B6852-82C7-4107-8C68-AE9232289E09}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {6A61CB42-80C5-4A83-AC3E-DA41FC875525}

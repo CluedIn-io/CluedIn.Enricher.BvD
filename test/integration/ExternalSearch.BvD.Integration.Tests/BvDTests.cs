@@ -1,9 +1,9 @@
 ﻿// --------------------------------------------------------------------------------------------------------------------
-// <copyright file="VatLayerTests.cs" company="Clued In">
+// <copyright file="BvDTests.cs" company="Clued In">
 //   Copyright (c) 2019 Clued In. All rights reserved.
 // </copyright>
 // <summary>
-//   Implements the VatLayer tests class.
+//   Implements the BvD tests class.
 // </summary>
 // --------------------------------------------------------------------------------------------------------------------
 
