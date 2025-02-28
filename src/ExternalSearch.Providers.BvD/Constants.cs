@@ -198,10 +198,7 @@ public static class Constants
                 Name = KeyName.ApiToken,
                 Help = "The key to authenticate access to the Vatlayer API.",
                 ValidationRules =
-                    new List<Dictionary<string, string>>
-                    {
-                        new() { { "regex", "\\s" }, { "message", "Spaces are not allowed" } }
-                    }
+                    [new() { { "regex", "\\s" }, { "message", "Spaces are not allowed" } }]
             },
             new()
             {

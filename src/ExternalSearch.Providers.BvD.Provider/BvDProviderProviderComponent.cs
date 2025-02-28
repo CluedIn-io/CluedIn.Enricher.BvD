@@ -6,7 +6,7 @@ using CluedIn.Core.Server;
 using ComponentHost;
 using Constants = CluedIn.ExternalSearch.Providers.BvD.Constants;
 
-namespace CluedIn.Provider.BvD;
+namespace CluedIn.Provider.ExternalSearch.Providers.BvD;
 
 [Component(Constants.ComponentName, "Providers", ComponentType.Service, ServerComponents.ProviderWebApi,
     Components.Server, Components.DataStores, Isolation = ComponentIsolation.NotIsolated)]

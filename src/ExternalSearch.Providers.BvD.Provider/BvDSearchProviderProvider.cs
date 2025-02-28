@@ -13,7 +13,7 @@ using CluedIn.ExternalSearch.Providers.BvD;
 using CluedIn.Providers.Models;
 using Constants = CluedIn.ExternalSearch.Providers.BvD.Constants;
 
-namespace CluedIn.Provider.BvD;
+namespace CluedIn.Provider.ExternalSearch.Providers.BvD;
 
 public class BvDSearchProviderProvider : ProviderBase, IExtendedProviderMetadata, IExternalSearchProviderProvider
 {
