@@ -257,16 +257,17 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
                 return existingResults.Any(r => string.Equals(r.Data.Data.First().BvdIdNumber, value,
                     StringComparison.InvariantCultureIgnoreCase));
             }
-            //bool lei(string value) => existingResults.Any(r => string.Equals(r.Data.Data.First().LEI, value, StringComparison.InvariantCultureIgnoreCase));
+
+            //bool lei(string value) => existingResults.Any(r => string.Equals(r.Data.Data.First().Lei, value, StringComparison.InvariantCultureIgnoreCase));
 
             var entityType = request.EntityMetaData.EntityType;
 
-            var orbisId = new HashSet<string>();
-            if (!string.IsNullOrWhiteSpace(config.OrbisId))
-            {
-                orbisId = request.QueryParameters.GetValue(config.OrbisId,
-                    []);
-            }
+            //var orbisId = new HashSet<string>();
+            //if (!string.IsNullOrWhiteSpace(config.OrbisId))
+            //{
+            //    orbisId = request.QueryParameters.GetValue(config.OrbisId,
+            //        []);
+            //}
 
             var bvdId = new HashSet<string>();
             if (!string.IsNullOrWhiteSpace(config.BvDId))
@@ -274,12 +275,18 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
                 bvdId = request.QueryParameters.GetValue(config.BvDId, []);
             }
 
+            //var leiId = new HashSet<string>();
+            //if (!string.IsNullOrWhiteSpace(config?.LeiId))
+            //{
+            //    leiId = request.QueryParameters.GetValue<string, HashSet<string>>(config.LeiId, []);
+            //}
+
             var filteredValues = bvdId.Where(v => !bvd(v)).ToArray();
 
             if (!filteredValues.Any())
             {
                 context.Log.LogWarning("Filter removed all BvD numbers, skipping processing. Original '{Original}'",
-                    string.Join(",", orbisId));
+                    string.Join(",", bvdId));
             }
             else
             {
@@ -355,7 +362,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
                     if (response.Data != null && response.Data.SearchSummary.TotalRecordsFound > 0)
                     {
                         var diagnostic =
-                            $"External search for Id: '{query.Id}' QueryKey: '{query.QueryKey}' produced results, CompanyName: '{response.Data.Data.First().Name}'  VatNumber: '{response.Data.Data.First().Orbisid}'";
+                            $"External search for Id: '{query.Id}' QueryKey: '{query.QueryKey}' produced results, CompanyName: '{response.Data.Data.First().Name}'  BvDNumber: '{response.Data.Data.First().Orbisid}'";
 
                         context.Log.LogInformation(diagnostic);
 
