@@ -29,7 +29,7 @@ resources:
       ref: ${{ parameters.pipelineTemplateRef }}
 
 pool:
-  vmImage: "ubuntu-latest"
+  vmImage: 'windows-latest'
 
 variables:
   - name: testFolderPath
