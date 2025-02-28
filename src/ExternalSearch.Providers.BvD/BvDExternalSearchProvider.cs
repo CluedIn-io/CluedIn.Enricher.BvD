@@ -395,7 +395,7 @@ namespace CluedIn.ExternalSearch.Providers.BvD
             var jobData = new BvDExternalSearchJobData(configDict);
 
             var client = new RestClient("https://api.bvdinfo.com/v1/orbis/Companies/data");
-            var request = new RestRequest("?QUERY={\"WHERE\":[{\"BvDID\":\"BE0435604729\"}],\"SELECT\":[\"NAME\"]}",
+            var request = new RestRequest("?QUERY={\"WHERE\":[{\"BvDID\":\"BE0435604729\"}],\"SELECT\":[\"NAME\", \"POSTCODE\"]}",
                 Method.GET);
             request.AddHeader("Content-Type", "application/json");
             request.AddHeader("ApiToken", jobData.ApiToken);
@@ -407,26 +407,35 @@ namespace CluedIn.ExternalSearch.Providers.BvD
 
         private ConnectionVerificationResult ConstructVerifyConnectionResponse(IRestResponse<BvDResponse> response)
         {
-            var errorMessageBase = $"{Constants.ProviderName} returned \"{(int)response.StatusCode} {response.StatusDescription}\".";
-            if (response.ErrorException != null)
+            try
             {
-                return new ConnectionVerificationResult(false, $"{errorMessageBase} {(!string.IsNullOrWhiteSpace(response.ErrorException.Message) ? response.ErrorException.Message : "This could be due to breaking changes in the external system")}.");
-            }
+                var errorMessageBase = $"{Constants.ProviderName} returned \"{(int)response.StatusCode} {response.StatusDescription}\".";
+                if (response.ErrorException != null)
+                {
+                    return new ConnectionVerificationResult(false, $"{errorMessageBase} {(!string.IsNullOrWhiteSpace(response.ErrorException.Message) ? response.ErrorException.Message : "This could be due to breaking changes in the external system")}.");
+                }
 
-            if (response.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.Unauthorized)
+                if (response.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.Unauthorized)
+                {
+                    return new ConnectionVerificationResult(false, $"{errorMessageBase} This could be due to invalid API key.");
+                }
+
+                var regex = new Regex(@"\<(html|head|body|div|span|img|p\>|a href)", RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.IgnorePatternWhitespace);
+                var isHtml = regex.IsMatch(response.Content);
+
+                var bvdErrorResponse = JsonConvert.DeserializeObject<BvDErrorResponse>(response.Content);
+
+                var errorMessage = response.IsSuccessful ? string.Empty
+                    : string.IsNullOrWhiteSpace(bvdErrorResponse.Found) || isHtml
+                        ? $"{errorMessageBase} This could be due to breaking changes in the external system."
+                        : $"{errorMessageBase} {bvdErrorResponse.Found}.";
+
+                return new ConnectionVerificationResult(response.IsSuccessful, errorMessage);
+            }
+            catch (Exception ex)
             {
-                return new ConnectionVerificationResult(false, $"{errorMessageBase} This could be due to invalid API key.");
+                return new ConnectionVerificationResult(false, ex.Message);
             }
-
-            var regex = new Regex(@"\<(html|head|body|div|span|img|p\>|a href)", RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.IgnorePatternWhitespace);
-            var isHtml = regex.IsMatch(response.Content);
-
-            var errorMessage = response.IsSuccessful ? string.Empty
-                : string.IsNullOrWhiteSpace(response.Content) || isHtml
-                    ? $"{errorMessageBase} This could be due to breaking changes in the external system."
-                    : $"{errorMessageBase} {response.Content}.";
-
-            return new ConnectionVerificationResult(response.IsSuccessful, errorMessage);
         }
 
         private IEntityMetadata CreateMetadata(IExternalSearchQueryResult<BvDResponse> resultItem, IExternalSearchRequest request)
