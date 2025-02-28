@@ -11,7 +11,6 @@ using CluedIn.Core.ExternalSearch;
 using CluedIn.Core.Providers;
 using CluedIn.Core.Connectors;
 using CluedIn.ExternalSearch.Providers.BvD.Models;
-using CluedIn.ExternalSearch.Providers.BvD.Utility;
 using CluedIn.ExternalSearch.Providers.BvD.Vocabularies;
 
 using Microsoft.Extensions.Logging;
