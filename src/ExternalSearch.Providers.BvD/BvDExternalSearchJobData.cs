@@ -32,7 +32,6 @@ namespace CluedIn.ExternalSearch.Providers.BvD
         public string OrbisId { get; set; }
         public string BvDId { get; set; }
         public string LeiId { get; set; }
-
         public string SelectProperties { get; set; }
     }
 }

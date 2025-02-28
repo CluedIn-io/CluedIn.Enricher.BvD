@@ -1130,7 +1130,6 @@ namespace CluedIn.ExternalSearch.Providers.BvD.Utility
             return int.Parse(vatnumber) % 11 == 0 ? true : false;
         }
 
-
         public bool Evaluate(string expression, string vat)
         {
             var type = GetType();
