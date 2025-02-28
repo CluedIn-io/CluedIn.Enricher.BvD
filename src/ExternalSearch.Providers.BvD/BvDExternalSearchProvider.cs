@@ -11,7 +11,6 @@ using CluedIn.Core.ExternalSearch;
 using CluedIn.Core.Providers;
 using CluedIn.Core.Connectors;
 using CluedIn.ExternalSearch.Providers.BvD.Models;
-using CluedIn.ExternalSearch.Providers.BvD.Utility;
 using CluedIn.ExternalSearch.Providers.BvD.Vocabularies;
 
 using Microsoft.Extensions.Logging;
@@ -164,17 +163,10 @@ namespace CluedIn.ExternalSearch.Providers.BvD
                     foreach (var value in filteredValues)
                     {
                         request.CustomQueryInput = bvdId.ElementAt(0);
-                        var cleaner = new BvDNumberCleaner();
-                        var sanitizedValue = cleaner.CheckBvDNumber(value);
+                        
+                        context.Log.LogInformation("External search query produced, ExternalSearchQueryParameter: '{Identifier}' EntityType: '{EntityCode}' Value: '{SanitizedValue}'", ExternalSearchQueryParameter.Identifier, entityType.Code, value);
 
-                        if (value != sanitizedValue)
-                        {
-                            context.Log.LogTrace("Sanitized VAT number. Original '{OriginalValue}', Updated '{SanitizedValue}'", value, sanitizedValue);
-                        }
-
-                        context.Log.LogInformation("External search query produced, ExternalSearchQueryParameter: '{Identifier}' EntityType: '{EntityCode}' Value: '{SanitizedValue}'", ExternalSearchQueryParameter.Identifier, entityType.Code, sanitizedValue);
-
-                        yield return new ExternalSearchQuery(this, entityType, ExternalSearchQueryParameter.Identifier, sanitizedValue);
+                        yield return new ExternalSearchQuery(this, entityType, ExternalSearchQueryParameter.Identifier, value);
                     }
                 }
 
