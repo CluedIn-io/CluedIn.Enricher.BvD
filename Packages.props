@@ -35,14 +35,4 @@
     <!--    <PackageReference Update="CluedIn.Core.Agent" Version="$(_CluedIn)" />-->
     <PackageReference Update="CluedIn.ExternalSearch" Version="$(_CluedIn)" />
   </ItemGroup>
-  <ItemGroup Label="Global tools">
-    <!--
-            Automatically added to each project with :
-            - IncludeAssets="Analyzers;Build"
-            - PrivateAssets="All"
-
-            DO NOT NEED TO BE ADDED AS A PACKAGEREFERENCE
-        -->
-    <!-- <GlobalPackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0" /> -->
-  </ItemGroup>
 </Project>
