@@ -10,7 +10,6 @@
 // #define BVD_DEV
 
 #if BVD_DEV
-
 using System;
 using System.Collections.Generic;
 using CluedIn.Core.Data;
