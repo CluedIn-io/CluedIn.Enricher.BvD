@@ -156,7 +156,7 @@ namespace CluedIn.ExternalSearch.Providers.BvD
 
                 if (!filteredValues.Any())
                 {
-                    context.Log.LogWarning("Filter removed all VAT numbers, skipping processing. Original '{Original}'", string.Join(",", orbisId));
+                    context.Log.LogWarning("Filter removed all BvD numbers, skipping processing. Original '{Original}'", string.Join(",", orbisId));
                 }
                 else
                 {
@@ -202,15 +202,15 @@ namespace CluedIn.ExternalSearch.Providers.BvD
             {
                 context.Log.LogTrace("Starting external search for Id: '{Id}' QueryKey: '{QueryKey}'", query.Id, query.QueryKey);
 
-                var vat = query.QueryParameters[ExternalSearchQueryParameter.Identifier].FirstOrDefault();
+                var bvd = query.QueryParameters[ExternalSearchQueryParameter.Identifier].FirstOrDefault();
 
-                if (string.IsNullOrEmpty(vat))
+                if (string.IsNullOrEmpty(bvd))
                 {
                     context.Log.LogTrace("No parameter for '{Identifier}' in query, skipping execute search", ExternalSearchQueryParameter.Identifier);
                 }
                 else
                 {
-                    vat = WebUtility.UrlEncode(vat);
+                    bvd = WebUtility.UrlEncode(bvd);
                     var selectedPropertiesQuery = string.Empty;
                     var client = new RestClient("https://api.bvdinfo.com/v1/orbis/Companies/data");
 
@@ -220,7 +220,7 @@ namespace CluedIn.ExternalSearch.Providers.BvD
                     }
 
                     var selectStatement =  string.IsNullOrEmpty(selectedPropertiesQuery) ? string.Empty : ",\"SELECT\":[" + selectedPropertiesQuery + "]}";
-                    var request = new RestRequest("?QUERY={\"WHERE\":[{\"BvDID\":\"" + vat + "\"}]" + selectStatement,
+                    var request = new RestRequest("?QUERY={\"WHERE\":[{\"BvDID\":\"" + bvd + "\"}]" + selectStatement,
                         Method.GET);
                     request.AddHeader("Content-Type", "application/json");
                     request.AddHeader("ApiToken",  apiToken);
