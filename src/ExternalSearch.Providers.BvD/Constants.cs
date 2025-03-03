@@ -65,8 +65,9 @@ public static class Constants
                 IsRequired = true,
                 Name = KeyName.ApiToken,
                 Help = "The key to authenticate access to the BvD API.",
-                ValidationRules =
-                    [new() { { "regex", "\\s" }, { "message", "Spaces are not allowed" } }]
+                // TODO Reapply validation in 4.5.0 onwards
+                //ValidationRules =
+                //    [new() { { "regex", "\\s" }, { "message", "Spaces are not allowed" } }]
             },
             new()
             {
