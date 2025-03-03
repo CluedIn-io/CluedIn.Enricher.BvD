@@ -242,7 +242,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
 
             if (!Accepts(config, request.EntityMetaData.EntityType))
             {
-                context.Log.LogTrace("Unacceptable business domain from '{EntityName}', entity code '{EntityCode}'",
+                context.Log.LogTrace("Unacceptable entity type from '{EntityName}', entity code '{EntityCode}'",
                     request.EntityMetaData.DisplayName, request.EntityMetaData.EntityType.Code);
                 yield break;
             }
