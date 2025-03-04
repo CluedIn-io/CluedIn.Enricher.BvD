@@ -182,13 +182,23 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
     {
         IDictionary<string, object> configDict = config.ToDictionary(entry => entry.Key, entry => entry.Value);
         var jobData = new BvDExternalSearchJobData(configDict);
-
         var client = new RestClient("https://api.bvdinfo.com/v1/orbis/Companies/data");
-        var request = new RestRequest(
-            "?QUERY={\"WHERE\":[{\"BvDID\":\"BE0435604729\"}],\"SELECT\":[\"NAME\", \"POSTCODE\"]}",
-            Method.GET);
+
+        var bvdRequest = new BvDRequest
+        {
+            Where =
+            [
+                new Dictionary<string, string> { { "BvDID", "BE0435604729" } }
+            ],
+            Select = !string.IsNullOrWhiteSpace(jobData.SelectProperties)
+                ? jobData.SelectProperties.Split(',').Select(s => s.Trim()).ToList()
+                : null
+        };
+
+        var request = new RestRequest(string.Empty, Method.POST);
         request.AddHeader("Content-Type", "application/json");
         request.AddHeader("ApiToken", jobData.ApiToken);
+        request.AddJsonBody(bvdRequest);
 
         var response = client.ExecuteAsync<BvDResponse>(request).Result;
 
@@ -340,21 +350,23 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
             else
             {
                 bvd = WebUtility.UrlEncode(bvd);
-                var selectedPropertiesQuery = string.Empty;
                 var client = new RestClient("https://api.bvdinfo.com/v1/orbis/Companies/data");
 
-                if (!string.IsNullOrWhiteSpace(selectProperties))
+                var bvdRequest = new BvDRequest
                 {
-                    selectedPropertiesQuery = string.Join(", ", selectProperties.Split(',').Select(s => $"\"{s}\""));
-                }
+                    Where =
+                    [
+                        new Dictionary<string, string> { { "BvDID", bvd } }
+                    ],
+                    Select = !string.IsNullOrWhiteSpace(selectProperties)
+                        ? selectProperties.Split(',').Select(s => s.Trim()).ToList()
+                        : null
+                };
 
-                var selectStatement = string.IsNullOrEmpty(selectedPropertiesQuery)
-                    ? string.Empty
-                    : ",\"SELECT\":[" + selectedPropertiesQuery + "]}";
-                var request = new RestRequest("?QUERY={\"WHERE\":[{\"BvDID\":\"" + bvd + "\"}]" + selectStatement,
-                    Method.GET);
+                var request = new RestRequest(string.Empty, Method.POST);
                 request.AddHeader("Content-Type", "application/json");
                 request.AddHeader("ApiToken", apiToken);
+                request.AddJsonBody(bvdRequest);
                 var response = client.ExecuteAsync<BvDResponse>(request).Result;
 
                 if (response.StatusCode == HttpStatusCode.OK)
