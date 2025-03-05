@@ -7,5 +7,5 @@ public class BvDResponse
 {
     [JsonProperty("SearchSummary")] public SearchSummary SearchSummary { get; set; }
 
-    [JsonProperty("Data")] public List<Datum> Data { get; set; }
+    [JsonProperty("Data")] public List<Dictionary<string, object>> Data { get; set; }
 }
