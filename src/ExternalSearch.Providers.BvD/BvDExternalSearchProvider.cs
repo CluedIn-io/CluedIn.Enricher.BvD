@@ -526,6 +526,9 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
             case null:
                 return null;
 
+            case string str:
+                return str;
+
             // if value is a standard array with exactly one element
             case Array { Length: 1 } array:
                 return array.GetValue(0)?.ToString();
