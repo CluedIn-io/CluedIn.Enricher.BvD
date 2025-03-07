@@ -8,11 +8,16 @@ using CluedIn.Core.Connectors;
 using CluedIn.Core.Data;
 using CluedIn.Core.Data.Parts;
 using CluedIn.Core.Data.Relational;
+using CluedIn.Core.Data.Vocabularies;
+using CluedIn.Core.Data.Vocabularies.Models;
 using CluedIn.Core.ExternalSearch;
 using CluedIn.Core.Providers;
+using CluedIn.Crawling.Helpers;
 using CluedIn.ExternalSearch.Provider;
+using CluedIn.ExternalSearch.Providers.BvD.Helper;
 using CluedIn.ExternalSearch.Providers.BvD.Models;
 using CluedIn.ExternalSearch.Providers.BvD.Vocabularies;
+using CluedIn.Integration.PrivateServices.Vocabularies;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using RestSharp;
@@ -100,7 +105,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
             var resultItem = result.As<BvDResponse>();
             var clue = new Clue(request.EntityMetaData.OriginEntityCode, context.Organization);
 
-            PopulateMetadata(clue.Data.EntityData, resultItem, request);
+            PopulateMetadata(context, clue.Data.EntityData, resultItem, request);
 
             context.Log.LogInformation(
                 "Clue produced, Id: '{Id}' OriginEntityCode: '{OriginEntityCode}' RawText: '{RawText}'", clue.Id,
@@ -131,7 +136,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
         using (context.Log.BeginScope("{0} {1}: request {2}, result {3}", GetType().Name, "GetPrimaryEntityMetadata",
                    request, result))
         {
-            var metadata = CreateMetadata(result.As<BvDResponse>(), request);
+            var metadata = CreateMetadata(context, result.As<BvDResponse>(), request);
 
             context.Log.LogInformation(
                 "Primary entity meta data created, Name: '{Name}' OriginEntityCode: '{OriginEntityCode}'",
@@ -264,7 +269,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
             //bool orbis(string value) => existingResults.Any(r => string.Equals(r.Data.Data.First().ORBISID, value, StringComparison.InvariantCultureIgnoreCase));
             bool bvd(string value)
             {
-                return existingResults.Any(r => string.Equals(r.Data.Data.First().BvdIdNumber, value,
+                return existingResults.Any(r => string.Equals(r.Data?.Data?.FirstOrDefault()?.TryGetValue("BVD_ID_NUMBER", out var bvdId) == true ? bvdId.ToString() : null, value,
                     StringComparison.InvariantCultureIgnoreCase));
             }
 
@@ -373,8 +378,12 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
                 {
                     if (response.Data != null && response.Data.SearchSummary.TotalRecordsFound > 0)
                     {
+                        var data = response.Data?.Data?.FirstOrDefault();
+                        var name = data?.TryGetValue("NAME", out var value) is true ? value?.ToString() : string.Empty;
+                        var orbisId = data?.TryGetValue("ORBISID", out var value1) is true ? value1?.ToString() : string.Empty;
+
                         var diagnostic =
-                            $"External search for Id: '{query.Id}' QueryKey: '{query.QueryKey}' produced results, CompanyName: '{response.Data.Data.First().Name}'  BvDNumber: '{response.Data.Data.First().Orbisid}'";
+                            $"External search for Id: '{query.Id}' QueryKey: '{query.QueryKey}' produced results, CompanyName: '{name}'  BvDNumber: '{orbisId}'";
 
                         context.Log.LogInformation(diagnostic);
 
@@ -480,17 +489,17 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
         }
     }
 
-    private IEntityMetadata CreateMetadata(IExternalSearchQueryResult<BvDResponse> resultItem,
+    private IEntityMetadata CreateMetadata(ExecutionContext context, IExternalSearchQueryResult<BvDResponse> resultItem,
         IExternalSearchRequest request)
     {
         var metadata = new EntityMetadataPart();
 
-        PopulateMetadata(metadata, resultItem, request);
+        PopulateMetadata(context, metadata, resultItem, request);
 
         return metadata;
     }
 
-    private void PopulateMetadata(IEntityMetadata metadata, IExternalSearchQueryResult<BvDResponse> resultItem,
+    private void PopulateMetadata(ExecutionContext context, IEntityMetadata metadata, IExternalSearchQueryResult<BvDResponse> resultItem,
         IExternalSearchRequest request)
     {
         var data = resultItem.Data.Data.First();
@@ -499,143 +508,85 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
         metadata.Name = request.EntityMetaData.Name;
         metadata.OriginEntityCode = request.EntityMetaData.OriginEntityCode;
 
-        metadata.Properties[BvDVocabulary.Organization.Name] = data.Name;
-        metadata.Properties[BvDVocabulary.Organization.AddressLine1] = data.AddressLine1;
-        metadata.Properties[BvDVocabulary.Organization.AddressLine2] = data.AddressLine2;
-        metadata.Properties[BvDVocabulary.Organization.AddressLine3] = data.AddressLine3;
-        metadata.Properties[BvDVocabulary.Organization.AddressLine4] = data.AddressLine4;
-        metadata.Properties[BvDVocabulary.Organization.Postcode] = data.Postcode;
-        metadata.Properties[BvDVocabulary.Organization.City] = data.City;
-        metadata.Properties[BvDVocabulary.Organization.CityStandardized] = data.CityStandardized;
-        metadata.Properties[BvDVocabulary.Organization.Country] = data.Country;
-        metadata.Properties[BvDVocabulary.Organization.CountryIsoCode] = data.CountryIsoCode;
-        metadata.Properties[BvDVocabulary.Organization.CountryRegion] = data.CountryRegion;
-        metadata.Properties[BvDVocabulary.Organization.CountryRegionType] = data.CountryRegionType;
-        metadata.Properties[BvDVocabulary.Organization.Nuts1] = data.Nuts1;
-        metadata.Properties[BvDVocabulary.Organization.Nuts2] = data.Nuts2;
-        metadata.Properties[BvDVocabulary.Organization.Nuts3] = data.Nuts3;
-        metadata.Properties[BvDVocabulary.Organization.WorldRegion] = data.WorldRegion;
-        metadata.Properties[BvDVocabulary.Organization.UsState] = data.UsState;
-        metadata.Properties[BvDVocabulary.Organization.AddressType] = data.AddressType;
-        metadata.Properties[BvDVocabulary.Organization.PhoneNumber] = data.PhoneNumber;
-        metadata.Properties[BvDVocabulary.Organization.FaxNumber] = data.FaxNumber;
-        metadata.Properties[BvDVocabulary.Organization.Domain] = data.Domain;
-        metadata.Properties[BvDVocabulary.Organization.Website] = data.Website;
-        metadata.Properties[BvDVocabulary.Organization.Email] = data.Email;
-        metadata.Properties[BvDVocabulary.Organization.Building] = data.Building;
-        metadata.Properties[BvDVocabulary.Organization.Street] = data.Street;
-        metadata.Properties[BvDVocabulary.Organization.StreetNumber] = data.StreetNumber;
-        metadata.Properties[BvDVocabulary.Organization.StreetNumberExtension] = data.StreetNumberExtension;
-        metadata.Properties[BvDVocabulary.Organization.StreetAndStreetNumber] = data.StreetAndStreetNumber;
-        metadata.Properties[BvDVocabulary.Organization.StreetSupplement] = data.StreetSupplement;
-        metadata.Properties[BvDVocabulary.Organization.PoBox] = data.PoBox;
-        metadata.Properties[BvDVocabulary.Organization.MinorTown] = data.MinorTown;
-        metadata.Properties[BvDVocabulary.Organization.AddressLine1Additional] = data.AddressLine1Additional;
-        metadata.Properties[BvDVocabulary.Organization.AddressLine2Additional] = data.AddressLine2Additional;
-        metadata.Properties[BvDVocabulary.Organization.AddressLine3Additional] = data.AddressLine3Additional;
-        metadata.Properties[BvDVocabulary.Organization.AddressLine4Additional] = data.AddressLine4Additional;
-        metadata.Properties[BvDVocabulary.Organization.PostcodeAdditional] = data.PostcodeAdditional;
-        metadata.Properties[BvDVocabulary.Organization.CityAdditional] = data.CityAdditional;
-        metadata.Properties[BvDVocabulary.Organization.CityStandardizedAdditional] = data.CityStandardizedAdditional;
-        metadata.Properties[BvDVocabulary.Organization.CountryAdditional] = data.CountryAdditional;
-        metadata.Properties[BvDVocabulary.Organization.CountryIsoCodeAdditional] = data.CountryIsoCodeAdditional;
-        metadata.Properties[BvDVocabulary.Organization.LatitudeAdditional] = data.LatitudeAdditional;
-        metadata.Properties[BvDVocabulary.Organization.LongitudeAdditional] = data.LongitudeAdditional;
-        metadata.Properties[BvDVocabulary.Organization.CountryRegionAdditional] = data.CountryRegionAdditional;
-        metadata.Properties[BvDVocabulary.Organization.CountryRegionTypeAdditional] =
-            data.CountryRegionTypeAdditional;
-        metadata.Properties[BvDVocabulary.Organization.AddressTypeAdditional] = data.AddressTypeAdditional;
-        metadata.Properties[BvDVocabulary.Organization.PhoneNumberAdditional] = data.PhoneNumberAdditional;
-        metadata.Properties[BvDVocabulary.Organization.FaxNumberAdditional] = data.FaxNumberAdditional;
-        metadata.Properties[BvDVocabulary.Organization.BuildingAdditional] = data.BuildingAdditional;
-        metadata.Properties[BvDVocabulary.Organization.StreetAdditional] = data.StreetAdditional;
-        metadata.Properties[BvDVocabulary.Organization.StreetNumberAdditional] = data.StreetNumberAdditional;
-        metadata.Properties[BvDVocabulary.Organization.StreetNumberExtensionAdditional] =
-            data.StreetNumberExtensionAdditional;
-        metadata.Properties[BvDVocabulary.Organization.StreetAndStreetNumberAdditional] =
-            data.StreetAndStreetNumberAdditional;
-        metadata.Properties[BvDVocabulary.Organization.StreetSupplementAdditional] = data.StreetSupplementAdditional;
-        metadata.Properties[BvDVocabulary.Organization.PoBoxAdditional] = data.PoBoxAdditional;
-        metadata.Properties[BvDVocabulary.Organization.MinorTownAdditional] = data.MinorTownAdditional;
-        metadata.Properties[BvDVocabulary.Organization.TradeDescriptionEn] = data.TradeDescriptionEn;
-        metadata.Properties[BvDVocabulary.Organization.TradeDescriptionOriginal] = data.TradeDescriptionOriginal;
-        metadata.Properties[BvDVocabulary.Organization.TradeDescriptionLanguage] = data.TradeDescriptionLanguage;
-        metadata.Properties[BvDVocabulary.Organization.ProductsServices] = data.ProductsServices;
-        metadata.Properties[BvDVocabulary.Organization.BvdSectorCoreLabel] = data.BvdSectorCoreLabel;
-        metadata.Properties[BvDVocabulary.Organization.IndustryClassification] = data.IndustryClassification;
-        metadata.Properties[BvDVocabulary.Organization.IndustryPrimaryCode] = data.IndustryPrimaryCode;
-        metadata.Properties[BvDVocabulary.Organization.IndustryPrimaryLabel] = data.IndustryPrimaryLabel;
-        metadata.Properties[BvDVocabulary.Organization.IndustrySecondaryCode] = data.IndustrySecondaryCode;
-        metadata.Properties[BvDVocabulary.Organization.IndustrySecondaryLabel] = data.IndustrySecondaryLabel;
-        metadata.Properties[BvDVocabulary.Organization.Nace2MainSection] = data.Nace2MainSection;
-        metadata.Properties[BvDVocabulary.Organization.Nace2CoreCode] = data.Nace2CoreCode;
-        metadata.Properties[BvDVocabulary.Organization.Nace2CoreLabel] = data.Nace2CoreLabel;
-        metadata.Properties[BvDVocabulary.Organization.Nace2PrimaryCode] = data.Nace2PrimaryCode;
-        metadata.Properties[BvDVocabulary.Organization.Nace2PrimaryLabel] = data.Nace2PrimaryLabel;
-        metadata.Properties[BvDVocabulary.Organization.Nace2SecondaryCode] = data.Nace2SecondaryCode;
-        metadata.Properties[BvDVocabulary.Organization.Nace2SecondaryLabel] = data.Nace2SecondaryLabel;
-        metadata.Properties[BvDVocabulary.Organization.Naics2017CoreCode] = data.Naics2017CoreCode;
-        metadata.Properties[BvDVocabulary.Organization.Naics2017CoreLabel] = data.Naics2017CoreLabel;
-        metadata.Properties[BvDVocabulary.Organization.Naics2017PrimaryCode] = data.Naics2017PrimaryCode;
-        metadata.Properties[BvDVocabulary.Organization.Naics2017PrimaryLabel] = data.Naics2017PrimaryLabel;
-        metadata.Properties[BvDVocabulary.Organization.Naics2017SecondaryCode] = data.Naics2017SecondaryCode;
-        metadata.Properties[BvDVocabulary.Organization.Naics2017SecondaryLabel] = data.Naics2017SecondaryLabel;
-        metadata.Properties[BvDVocabulary.Organization.UssicCoreCode] = data.UssicCoreCode;
-        metadata.Properties[BvDVocabulary.Organization.UssicCoreLabel] = data.UssicCoreLabel;
-        metadata.Properties[BvDVocabulary.Organization.UssicPrimaryCode] = data.UssicPrimaryCode;
-        metadata.Properties[BvDVocabulary.Organization.UssicPrimaryLabel] = data.UssicPrimaryLabel;
-        metadata.Properties[BvDVocabulary.Organization.UssicSecondaryCode] = data.UssicSecondaryCode;
-        metadata.Properties[BvDVocabulary.Organization.UssicSecondaryLabel] = data.UssicSecondaryLabel;
-        metadata.Properties[BvDVocabulary.Organization.BvdIdNumber] = data.BvdIdNumber;
-        metadata.Properties[BvDVocabulary.Organization.BvdAccountNumber] = data.BvdAccountNumber;
-        metadata.Properties[BvDVocabulary.Organization.OrbisId] = data.Orbisid;
-        metadata.Properties[BvDVocabulary.Organization.NationalId] = data.NationalId;
-        metadata.Properties[BvDVocabulary.Organization.NationalIdLabel] = data.NationalIdLabel;
-        metadata.Properties[BvDVocabulary.Organization.NationalIdType] = data.NationalIdType;
-        metadata.Properties[BvDVocabulary.Organization.TradeRegisterNumber] = data.TradeRegisterNumber;
-        metadata.Properties[BvDVocabulary.Organization.VatNumber] = data.VatNumber;
-        metadata.Properties[BvDVocabulary.Organization.EuropeanVatNumber] = data.EuropeanVatNumber;
-        metadata.Properties[BvDVocabulary.Organization.Lei] = data.Lei;
-        metadata.Properties[BvDVocabulary.Organization.Giin] = data.Giin;
-        metadata.Properties[BvDVocabulary.Organization.StatisticalNumber] = data.StatisticalNumber;
-        metadata.Properties[BvDVocabulary.Organization.CompanyIdNumber] = data.CompanyIdNumber;
-        metadata.Properties[BvDVocabulary.Organization.InformationProviderId] = data.InformationProviderId;
-        metadata.Properties[BvDVocabulary.Organization.InformationProviderIdLabel] = data.InformationProviderIdLabel;
-        metadata.Properties[BvDVocabulary.Organization.Ticker] = data.Ticker;
-        metadata.Properties[BvDVocabulary.Organization.Isin] = data.Isin;
-        metadata.Properties[BvDVocabulary.Organization.LeiStatus] = data.LeiStatus;
-        metadata.Properties[BvDVocabulary.Organization.LeiFirstAssignmentDate] = data.LeiFirstAssignmentDate;
-        metadata.Properties[BvDVocabulary.Organization.LeiAnnualRenewalDate] = data.LeiAnnualRenewalDate;
-        metadata.Properties[BvDVocabulary.Organization.LeiManagingLocalOfficeUnitStr] =
-            data.LeiManagingLocalOfficeUnitStr;
-        metadata.Properties[BvDVocabulary.Organization.ReleaseDate] = data.ReleaseDate;
-        metadata.Properties[BvDVocabulary.Organization.InformationProvider] = data.InformationProvider;
-        metadata.Properties[BvDVocabulary.Organization.Name] = data.Name;
-        metadata.Properties[BvDVocabulary.Organization.PreviousName] = data.PreviousName;
-        metadata.Properties[BvDVocabulary.Organization.PreviousNameDate] = data.PreviousNameDate;
-        metadata.Properties[BvDVocabulary.Organization.AkaName] = data.AkaName;
-        metadata.Properties[BvDVocabulary.Organization.Status] = data.Status;
-        metadata.Properties[BvDVocabulary.Organization.StatusDate] = data.StatusDate;
-        metadata.Properties[BvDVocabulary.Organization.StatusChangeDate] = data.StatusChangeDate;
-        metadata.Properties[BvDVocabulary.Organization.LocalStatus] = data.LocalStatus;
-        metadata.Properties[BvDVocabulary.Organization.LocalStatusDate] = data.LocalStatusDate;
-        metadata.Properties[BvDVocabulary.Organization.LocalStatusChangeDate] = data.LocalStatusChangeDate;
-        metadata.Properties[BvDVocabulary.Organization.StandardisedLegalForm] = data.StandardisedLegalForm;
-        metadata.Properties[BvDVocabulary.Organization.NationalLegalForm] = data.NationalLegalForm;
-        metadata.Properties[BvDVocabulary.Organization.IncorporationDate] = data.IncorporationDate;
-        metadata.Properties[BvDVocabulary.Organization.IncorporationState] = data.IncorporationState;
-        metadata.Properties[BvDVocabulary.Organization.EntityType] = data.EntityType;
-        metadata.Properties[BvDVocabulary.Organization.IcijDataPresenceIndicator] = data.IcijDataPresenceIndicator;
-        metadata.Properties[BvDVocabulary.Organization.ConsolidationCode] = data.ConsolidationCode;
-        metadata.Properties[BvDVocabulary.Organization.ClosingDateLastAnnualAccounts] =
-            data.ClosingDateLastAnnualAccounts;
-        metadata.Properties[BvDVocabulary.Organization.YearLastAccounts] = data.YearLastAccounts;
-        metadata.Properties[BvDVocabulary.Organization.LimitedFinancialIndicator] = data.LimitedFinancialIndicator;
-        metadata.Properties[BvDVocabulary.Organization.NoRecentFinancialIndicator] = data.NoRecentFinancialIndicator;
-        metadata.Properties[BvDVocabulary.Organization.NumberYears] = data.NumberYears;
+        var vocabId = GetOrCreateBvDVocabularyId(context);
+        var bvdOrganizationVocabulary = new BvDOrganizationVocabulary();
+
+        foreach (var kvp in data)
+        {
+            var camelCaseKey = kvp.Key.Replace("_", " ").ToLowerInvariant().ToCamelCase();
+            CreateVocabularyKeyIfNecessary(context, vocabId, camelCaseKey);
+            metadata.Properties[bvdOrganizationVocabulary.KeyPrefix + bvdOrganizationVocabulary.KeySeparator + camelCaseKey] = kvp.Value.PrintIfAvailable();
+        }
     }
 
-    // Since this is a configurable external search provider, theses methods should never be called
+    private static void CreateVocabularyKeyIfNecessary(ExecutionContext context, Guid vocabId, string label = null)
+    {
+        var cacheKey = $"BvD_CreateVocabularyKeyIfNecessary_{label}";
+
+        var cached = context.ApplicationContext.System.Cache.GetItem<object>(cacheKey);
+        if (cached != null)
+        {
+            return;
+        }
+
+        using (LockHelper.GetDistributedLockAsync(context.ApplicationContext, "BvD_CreateVocab_Lock", TimeSpan.FromMinutes(1)).GetAwaiter().GetResult())
+        {
+            var vocabularyRepository = context.ApplicationContext.Container.Resolve<IPrivateVocabularyRepository>();
+            var bvdOrganizationVocabulary = new BvDOrganizationVocabulary();
+            var existingVocabKey = vocabularyRepository.GetVocabularyKeyByFullName(bvdOrganizationVocabulary.KeyPrefix + bvdOrganizationVocabulary.KeySeparator + label);
+            if (existingVocabKey == null)
+            {
+                var newVocabKey = new AddVocabularyKeyModel
+                {
+                    VocabularyId = vocabId,
+                    DisplayName = label,
+                    GroupName = "Metadata",
+                    Name = label,
+                    DataType = VocabularyKeyDataType.Text,
+                    IsVisible = true,
+                    Storage = VocabularyKeyStorage.Keyword
+                };
+                var vocabKeyId = vocabularyRepository.AddVocabularyKey(newVocabKey, context, Guid.Empty.ToString()).GetAwaiter().GetResult();
+                vocabularyRepository.ActivateVocabularyKey(context, vocabKeyId).GetAwaiter().GetResult();
+            }
+            context.ApplicationContext.System.Cache.SetItem(cacheKey, new object(), DateTimeOffset.Now.AddMinutes(1));
+        }
+    }
+
+    private static Guid GetOrCreateBvDVocabularyId(ExecutionContext context)
+    {
+        const string cacheKey = "BvD-GetExistingVocabulary";
+        var cached = context.ApplicationContext.System.Cache.GetItem<object>(cacheKey);
+        if (cached != null)
+        {
+            return (Guid)cached;
+        }
+
+        using (LockHelper.GetDistributedLockAsync(context.ApplicationContext, "BvD_CreateVocab_Lock", TimeSpan.FromMinutes(1)).GetAwaiter().GetResult())
+        {
+            var vocabularyRepository = context.ApplicationContext.Container.Resolve<IPrivateVocabularyRepository>();
+
+            var vocab = vocabularyRepository.GetVocabularyByKeyPrefix("BvD.organization");
+
+            Guid vocabId;
+            if (vocab == null)
+            {
+                var newVocab = new AddVocabularyModel { VocabularyName = "BvD Organization", KeyPrefix = "BvD.organization", Grouping = EntityType.Organization };
+                vocabId = vocabularyRepository.AddVocabulary(newVocab, Guid.Empty.ToString(), context.Organization.Id).GetAwaiter().GetResult();
+                vocabularyRepository.ActivateVocabulary(context, vocabId).GetAwaiter().GetResult();
+            }
+            else
+            {
+                vocabId = vocab.VocabularyId;
+            }
+
+            context.ApplicationContext.System.Cache.SetItem(cacheKey, (object)vocabId, DateTimeOffset.Now.AddMinutes(1));
+
+            return vocabId;
+        }
+    }
+
+    // Since this is a configurable external search provider, these methods should never be called
     public override bool Accepts(EntityType entityType)
     {
         throw new NotSupportedException();
