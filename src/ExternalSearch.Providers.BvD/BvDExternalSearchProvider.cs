@@ -515,8 +515,38 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
         {
             var camelCaseKey = kvp.Key.Replace("_", " ").ToLowerInvariant().ToCamelCase();
             CreateVocabularyKeyIfNecessary(context, vocabId, camelCaseKey);
-            metadata.Properties[bvdOrganizationVocabulary.KeyPrefix + bvdOrganizationVocabulary.KeySeparator + camelCaseKey] = kvp.Value.PrintIfAvailable();
+            metadata.Properties[bvdOrganizationVocabulary.KeyPrefix + bvdOrganizationVocabulary.KeySeparator + camelCaseKey] = FirstIfSingleArray(kvp.Value).PrintIfAvailable();
         }
+    }
+
+    private static object FirstIfSingleArray(object value)
+    {
+        switch (value)
+        {
+            case null:
+                return null;
+
+            case string str:
+                return str;
+
+            // if value is a standard array with exactly one element
+            case Array { Length: 1 } array:
+                return array.GetValue(0)?.ToString();
+
+            // if value is an enumerable (like a list) with exactly one element
+            case System.Collections.IEnumerable enumerable:
+                {
+                    var items = enumerable.Cast<object>().ToList();
+                    if (items.Count == 1)
+                    {
+                        return items[0]?.ToString();
+                    }
+
+                    break;
+                }
+        }
+
+        return value;
     }
 
     private static void CreateVocabularyKeyIfNecessary(ExecutionContext context, Guid vocabId, string label = null)
