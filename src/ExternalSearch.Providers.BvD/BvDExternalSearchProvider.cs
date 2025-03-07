@@ -532,15 +532,15 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
 
             // if value is an enumerable (like a list) with exactly one element
             case System.Collections.IEnumerable enumerable:
-            {
-                var items = enumerable.Cast<object>().ToList();
-                if (items.Count == 1)
                 {
-                    return items[0]?.ToString();
-                }
+                    var items = enumerable.Cast<object>().ToList();
+                    if (items.Count == 1)
+                    {
+                        return items[0]?.ToString();
+                    }
 
-                break;
-            }
+                    break;
+                }
         }
 
         return value;
