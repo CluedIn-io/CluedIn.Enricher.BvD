@@ -1,12 +1,15 @@
 ﻿// --------------------------------------------------------------------------------------------------------------------
-// <copyright file="VatLayerTests.cs" company="Clued In">
+// <copyright file="BvDTests.cs" company="Clued In">
 //   Copyright (c) 2019 Clued In. All rights reserved.
 // </copyright>
 // <summary>
-//   Implements the VatLayer tests class.
+//   Implements the BvD tests class.
 // </summary>
 // --------------------------------------------------------------------------------------------------------------------
 
+// #define BVD_DEV
+
+#if BVD_DEV
 using System;
 using System.Collections.Generic;
 using CluedIn.Core.Data;
@@ -21,7 +24,7 @@ namespace ExternalSearch.BvD.Integration.Tests
 {
     public class BvDTests : BaseExternalSearchTest<BvDExternalSearchProvider>
     {
-        private const string ApiToken = "118edd4591f3cf622af6e72e4eded7ea";
+        private const string ApiToken = "";
 
         [Theory]
         [InlineData("DK36548681")]
@@ -129,3 +132,5 @@ namespace ExternalSearch.BvD.Integration.Tests
         }
     }
 }
+
+#endif
