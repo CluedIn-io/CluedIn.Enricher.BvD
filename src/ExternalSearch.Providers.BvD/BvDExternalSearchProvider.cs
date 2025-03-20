@@ -521,7 +521,8 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
 
     private static object FirstIfSingleArray(object value)
     {
-        while (true)
+        var maxIteration = 10;
+        while (maxIteration-- > 0)
         {
             switch (value)
             {
@@ -551,6 +552,8 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
 
             return value;
         }
+
+        return value; // return whatever we have if max iteration reached
     }
 
     private static void CreateVocabularyKeyIfNecessary(ExecutionContext context, Guid vocabId, string label = null)
