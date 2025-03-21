@@ -521,32 +521,39 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
 
     private static object FirstIfSingleArray(object value)
     {
-        switch (value)
+        var maxIteration = 10;
+        while (maxIteration-- > 0)
         {
-            case null:
-                return null;
+            switch (value)
+            {
+                case null:
+                    return null;
 
-            case string str:
-                return str;
+                case string str:
+                    return str;
 
-            // if value is a standard array with exactly one element
-            case Array { Length: 1 } array:
-                return array.GetValue(0)?.ToString();
+                // if value is a standard array with exactly one element
+                case Array { Length: 1 } array:
+                    return array.GetValue(0)?.ToString();
 
-            // if value is an enumerable (like a list) with exactly one element
-            case System.Collections.IEnumerable enumerable:
+                // if value is an enumerable (like a list) with exactly one element
+                case System.Collections.IEnumerable enumerable:
                 {
                     var items = enumerable.Cast<object>().ToList();
                     if (items.Count == 1)
                     {
-                        return items[0]?.ToString();
+                        value = items[0];
+                        continue;
                     }
 
                     break;
                 }
+            }
+
+            return value;
         }
 
-        return value;
+        return value; // return whatever we have if max iteration reached
     }
 
     private static void CreateVocabularyKeyIfNecessary(ExecutionContext context, Guid vocabId, string label = null)
