@@ -1,5 +1,5 @@
 mode: ContinuousDeployment
-next-version: 4.5.0-alpha.19
+next-version: 4.0
 branches:
   master:
     mode: ContinuousDelivery
@@ -22,8 +22,7 @@ branches:
     prevent-increment-of-merged-branch-version: true
     is-mainline: false
     source-branches:
-    - main
-    - develop
+      - main
+      - develop
 ignore:
   sha: []
-
