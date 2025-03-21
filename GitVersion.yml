@@ -1,5 +1,5 @@
 mode: ContinuousDeployment
-next-version: 4.0
+next-version: 4.5.0-alpha.19
 branches:
   master:
     mode: ContinuousDelivery
