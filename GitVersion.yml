@@ -22,7 +22,8 @@ branches:
     prevent-increment-of-merged-branch-version: true
     is-mainline: false
     source-branches:
-      - main
-      - develop
+    - main
+    - develop
 ignore:
   sha: []
+
