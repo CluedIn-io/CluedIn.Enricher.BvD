@@ -155,6 +155,8 @@ public class BvDOrganizationVocabulary : SimpleVocabulary
             LimitedFinancialIndicator = group.Add(new VocabularyKey("limitedFinancialIndicator"));
             NoRecentFinancialIndicator = group.Add(new VocabularyKey("noRecentFinancialIndicator"));
             NumberYears = group.Add(new VocabularyKey("numberYears"));
+            GuoBvdIdNumber = group.Add(new VocabularyKey("guoBvdIdNumber"));
+            RawMatches = group.Add(new VocabularyKey("rawMatches"));
         });
     }
 
@@ -286,4 +288,6 @@ public class BvDOrganizationVocabulary : SimpleVocabulary
     public VocabularyKey LimitedFinancialIndicator { get; protected set; }
     public VocabularyKey NoRecentFinancialIndicator { get; protected set; }
     public VocabularyKey NumberYears { get; protected set; }
+    public VocabularyKey GuoBvdIdNumber { get; protected set; }
+    public VocabularyKey RawMatches { get; protected set; }
 }
