@@ -68,12 +68,12 @@ public static class Constants
         //},
         new()
         {
-            DisplayName = "BvD Id",
+            DisplayName = "BvD ID",
             Type = "vocabularyKeySelector",
             IsRequired = false,
             Name = KeyName.BvDId,
             Help =
-                "The vocabulary key that contains the BvD Id of companies you want to enrich (e.g., organization.bvd)."
+                "The vocabulary key that contains BvD IDs of companies you want to enrich (e.g., organization.bvd)."
         },
         //new()
         //{
@@ -86,21 +86,21 @@ public static class Constants
         //},
         new()
         {
-            DisplayName = "Select Properties",
+            DisplayName = "Enrichment properties",
             Type = "input",
             IsRequired = false,
             Name = KeyName.SelectProperties,
             Help =
-                "The properties to be selected from the enrichment result. (e.g., NAME,CITY,ADDRESS_LINE1,...)"
+                "The properties that should be returned to CluedIn as a result of enrichment (e.g., NAME,CITY,ADDRESS_LINE1)."
         },
         new()
         {
-            DisplayName = "Validate BvD Id",
+            DisplayName = "Validate BvD ID",
             Type = "checkbox",
             IsRequired = false,
             Name = KeyName.ValidateBvDId,
             Help =
-                "Toggle to control whether the BvD Id needs to be validated."
+                "Toggle to control whether the BvD ID needs to be validated before enrichment."
         },
         new()
         {
@@ -109,7 +109,7 @@ public static class Constants
             IsRequired = false,
             Name = KeyName.MatchFirstAndHighest,
             Help =
-                "Toggle to control whether the enrichment should based on the first and highest score match if BvD Id validation failed.",
+                "Toggle to control whether the enrichment should be based on the first and highest score match if BvD ID validation failed.",
             DisplayDependencies =
             [
                 new ControlDisplayDependency
@@ -122,12 +122,12 @@ public static class Constants
         },
         new()
         {
-            DisplayName = "Score Limit",
+            DisplayName = "Score Range",
             Type = "input",
             IsRequired = true,
             Name = KeyName.ScoreLimit,
             Help =
-                "No results below this threshold (0 - 1) will be returned (e.g., 0.85).",
+                "The score range required for matches to be considered in the validation process. Only matches within this range will be validated (e.g., if you enter 0.5-1, only matches with scores between 0.5 and 1 will be validated).",
             DisplayDependencies =
             [
                 new ControlDisplayDependency
@@ -145,7 +145,7 @@ public static class Constants
             IsRequired = false,
             Name = KeyName.Name,
             Help =
-                "The vocabulary key that contains the name of companies you want to enrich (e.g., organization.name).",
+                "The vocabulary key that contains the names of companies you want to enrich (e.g., organization.name).",
             DisplayDependencies =
             [
                 new ControlDisplayDependency
@@ -163,7 +163,7 @@ public static class Constants
             IsRequired = false,
             Name = KeyName.Country,
             Help =
-                "The vocabulary key that contains the country of companies you want to enrich (e.g., organization.address.country).",
+                "The vocabulary key that contains the countries of companies you want to enrich (e.g., organization.address.country).",
             DisplayDependencies =
             [
                 new ControlDisplayDependency
@@ -181,7 +181,7 @@ public static class Constants
             IsRequired = false,
             Name = KeyName.Address,
             Help =
-                "The vocabulary key that contains the address of companies you want to enrich (e.g., organization.address).",
+                "The vocabulary key that contains the addresses of companies you want to enrich (e.g., organization.address).",
             DisplayDependencies =
             [
                 new ControlDisplayDependency
@@ -199,7 +199,7 @@ public static class Constants
             IsRequired = false,
             Name = KeyName.City,
             Help =
-                "The vocabulary key that contains the city of companies you want to enrich (e.g., organization.address.city).",
+                "The vocabulary key that contains the cities of companies you want to enrich (e.g., organization.address.city).",
             DisplayDependencies =
             [
                 new ControlDisplayDependency
@@ -217,7 +217,7 @@ public static class Constants
             IsRequired = false,
             Name = KeyName.PostCode,
             Help =
-                "The vocabulary key that contains the post code of companies you want to enrich (e.g., organization.address.postCode).",
+                "The vocabulary key that contains the post codes of companies you want to enrich (e.g., organization.address.postCode).",
             DisplayDependencies =
             [
                 new ControlDisplayDependency
@@ -235,7 +235,7 @@ public static class Constants
             IsRequired = false,
             Name = KeyName.State,
             Help =
-                "The vocabulary key that contains the state of companies you want to enrich (e.g., organization.address.state).",
+                "The vocabulary key that contains the states of companies you want to enrich (e.g., organization.address.state).",
             DisplayDependencies =
             [
                 new ControlDisplayDependency
@@ -253,7 +253,7 @@ public static class Constants
             IsRequired = false,
             Name = KeyName.Website,
             Help =
-                "The vocabulary key that contains the website of companies you want to enrich (e.g., organization.website).",
+                "The vocabulary key that contains the websites of companies you want to enrich (e.g., organization.website).",
             DisplayDependencies =
             [
                 new ControlDisplayDependency
@@ -271,7 +271,7 @@ public static class Constants
             IsRequired = false,
             Name = KeyName.Email,
             Help =
-                "The vocabulary key that contains the email of companies you want to enrich (e.g., organization.contact.email).",
+                "The vocabulary key that contains the emails of companies you want to enrich (e.g., organization.contact.email).",
             DisplayDependencies =
             [
                 new ControlDisplayDependency
@@ -289,7 +289,7 @@ public static class Constants
             IsRequired = false,
             Name = KeyName.Phone,
             Help =
-                "The vocabulary key that contains the phone number of companies you want to enrich (e.g., organization.phoneNumber).",
+                "The vocabulary key that contains the phone numbers of companies you want to enrich (e.g., organization.phoneNumber).",
             DisplayDependencies =
             [
                 new ControlDisplayDependency
@@ -307,7 +307,7 @@ public static class Constants
             IsRequired = false,
             Name = KeyName.Fax,
             Help =
-                "The vocabulary key that contains the fax number of companies you want to enrich (e.g., organization.fax).",
+                "The vocabulary key that contains the fax numbers of companies you want to enrich (e.g., organization.fax).",
             DisplayDependencies =
             [
                 new ControlDisplayDependency
@@ -320,12 +320,12 @@ public static class Constants
         },
         new()
         {
-            DisplayName = "National Id",
+            DisplayName = "National ID",
             Type = "vocabularyKeySelector",
             IsRequired = false,
             Name = KeyName.NationalId,
             Help =
-                "The vocabulary key that contains the national id of companies you want to enrich (e.g., organization.nationalId).",
+                "The vocabulary key that contains the national IDs of companies you want to enrich (e.g., organization.nationalId).",
             DisplayDependencies =
             [
                 new ControlDisplayDependency
@@ -343,7 +343,7 @@ public static class Constants
             IsRequired = false,
             Name = KeyName.Ticker,
             Help =
-                "The vocabulary key that contains the ticker of companies you want to enrich (e.g., organization.ticker).",
+                "The vocabulary key that contains the ticker symbols of companies you want to enrich (e.g., organization.ticker).",
             DisplayDependencies =
             [
                 new ControlDisplayDependency
@@ -361,7 +361,7 @@ public static class Constants
             IsRequired = false,
             Name = KeyName.Isin,
             Help =
-                "The vocabulary key that contains the ISIN of companies you want to enrich (e.g., organization.isin).",
+                "The vocabulary key that contains the ISIN codes of companies you want to enrich (e.g., organization.isin).",
             DisplayDependencies =
             [
                 new ControlDisplayDependency
@@ -380,7 +380,7 @@ public static class Constants
         {
             new()
             {
-                DisplayName = "API Access Key",
+                DisplayName = "API Key",
                 Type = "password",
                 IsRequired = true,
                 Name = KeyName.ApiToken,
