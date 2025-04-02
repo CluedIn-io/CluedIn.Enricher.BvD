@@ -13,8 +13,6 @@ public class BvDMatchesRequest
 
 public class MatchCondition
 {
-    [JsonProperty(nameof(Criteria))]
     public Dictionary<string, object> Criteria { get; set; }
-    [JsonProperty(nameof(Options))]
     public Dictionary<string, object> Options { get; set; }
 }

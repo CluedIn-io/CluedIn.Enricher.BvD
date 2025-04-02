@@ -366,19 +366,19 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
 
             var conditions = new Dictionary<string, string>
             {
-                {"Name",       name.FirstOrDefault() ?? string.Empty},
-                {"Country",    country.FirstOrDefault() ?? string.Empty},
-                {"Address",    address.FirstOrDefault() ?? string.Empty},
-                {"City",       city.FirstOrDefault() ?? string.Empty},
-                {"PostCode",   postCode.FirstOrDefault() ?? string.Empty},
-                {"State",      state.FirstOrDefault() ?? string.Empty},
-                {"Website",    website.FirstOrDefault() ?? string.Empty},
-                {"Email",      email.FirstOrDefault() ?? string.Empty},
-                {"Phone",      phone.FirstOrDefault() ?? string.Empty},
-                {"Fax",        fax.FirstOrDefault() ?? string.Empty},
-                {"NationalId", nationalId.FirstOrDefault() ?? string.Empty},
-                {"Ticker",     ticker.FirstOrDefault() ?? string.Empty},
-                {"Isin",       isin.FirstOrDefault() ?? string.Empty}
+                {nameof(Constants.KeyName.Name),       name.FirstOrDefault() ?? string.Empty},
+                {nameof(Constants.KeyName.Country),    country.FirstOrDefault() ?? string.Empty},
+                {nameof(Constants.KeyName.Address),    address.FirstOrDefault() ?? string.Empty},
+                {nameof(Constants.KeyName.City),       city.FirstOrDefault() ?? string.Empty},
+                {nameof(Constants.KeyName.PostCode),   postCode.FirstOrDefault() ?? string.Empty},
+                {nameof(Constants.KeyName.State),      state.FirstOrDefault() ?? string.Empty},
+                {nameof(Constants.KeyName.Website),    website.FirstOrDefault() ?? string.Empty},
+                {nameof(Constants.KeyName.Email),      email.FirstOrDefault() ?? string.Empty},
+                {nameof(Constants.KeyName.Phone),      phone.FirstOrDefault() ?? string.Empty},
+                {nameof(Constants.KeyName.Fax),        fax.FirstOrDefault() ?? string.Empty},
+                {nameof(Constants.KeyName.NationalId), nationalId.FirstOrDefault() ?? string.Empty},
+                {nameof(Constants.KeyName.Ticker),     ticker.FirstOrDefault() ?? string.Empty},
+                {nameof(Constants.KeyName.Isin),       isin.FirstOrDefault() ?? string.Empty}
             };
 
             var filteredValues = bvdId.Where(v => !bvd(v)).ToArray();
@@ -705,7 +705,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
                     var diagnostic =
                         $"External search for Id: '{query.Id}' QueryKey: '{query.QueryKey}' produced results, CompanyName: '{name}'  BvDNumber: '{bvdNumber}'";
 
-                    context.Log.LogInformation(diagnostic);
+                    context.Log.LogTrace(diagnostic);
 
                     return response.Data;
                 }
