@@ -448,6 +448,11 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
                 // If bvd id not exist in the list of possible match companies
                 if (matchCompanies is not { Count: > 0 } || !matchCompanies.Exists(x => x.BvDId == bvd)) 
                 {
+                    if (!matchCompanies.Any())
+                    {
+                        yield break;
+                    }
+
                     // If auto match first and highest confidence score match toggle is enabled, search using the bvd id of first match
                     if (jobData.MatchFirstAndHighest)
                     {
@@ -458,7 +463,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
                             yield return searchCompany;
                         }
                     }
-                    else
+                    else 
                     {
                         // else return list of possible match json
                         var rawMatch = new BvDResponse
@@ -604,37 +609,28 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
 
         if (response.StatusCode == HttpStatusCode.OK)
         {
-            if (response.Data != null && response.Data.Count > 0)
+            var diagnostic =
+                $"External search (validation) for Id: '{query.Id}' QueryKey: '{query.QueryKey}' produced no results - StatusCode: '{response.StatusCode}' Content: '{response.Content}'";
+
+            if (response.Data is not { Count: > 0 })
             {
-                var data = response.Data?.FirstOrDefault();
-                var name = data?.Name;
-
-                var diagnostic =
-                    $"External search (validation) for Id: '{query.Id}' QueryKey: '{query.QueryKey}' produced results, CompanyName: '{name}'";
-
-                context.Log.LogInformation(diagnostic);
-
-                return response.Data;
+                context.Log.LogWarning(diagnostic);
+                return [];
             }
-            else
-            {
-                var diagnostic =
-                    $"Failed external search (validation) for Id: '{query.Id}' QueryKey: '{query.QueryKey}' - StatusCode: '{response.StatusCode}' Content: '{response.Content}'";
 
-                context.Log.LogError(diagnostic);
+            var data = response.Data?.FirstOrDefault();
+            var name = data?.Name;
 
-                var content = JsonConvert.DeserializeObject<dynamic>(response.Content);
-                if (content.error != null)
-                {
-                    throw new InvalidOperationException(
-                        $"{content.error.info} - Type: {content.error.type} Code: {content.error.code}");
-                }
+            diagnostic =
+                $"External search (validation) for Id: '{query.Id}' QueryKey: '{query.QueryKey}' produced results, CompanyName: '{name}'";
 
-                // TODO else do what with content ? ...
-            }
+            context.Log.LogInformation(diagnostic);
+
+            return response.Data;
+
         }
-        else if (response.StatusCode == HttpStatusCode.NoContent ||
-                 response.StatusCode == HttpStatusCode.NotFound)
+
+        if (response.StatusCode is HttpStatusCode.NoContent or HttpStatusCode.NotFound)
         {
             var diagnostic =
                 $"External search (validation) for Id: '{query.Id}' QueryKey: '{query.QueryKey}' produced no results - StatusCode: '{response.StatusCode}' Content: '{response.Content}'";
@@ -643,7 +639,8 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
 
             return [];
         }
-        else if (response.ErrorException != null)
+
+        if (response.ErrorException != null)
         {
             var diagnostic =
                 $"External search (validation) for Id: '{query.Id}' QueryKey: '{query.QueryKey}' produced no results - StatusCode: '{response.StatusCode}' Content: '{response.Content}'";
@@ -661,8 +658,6 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
 
             throw new ApplicationException(diagnostic);
         }
-
-        return [];
     }
 
     private static IEnumerable<IExternalSearchQueryResult> SearchCompanies(ExecutionContext context, IExternalSearchQuery query, string apiToken,
