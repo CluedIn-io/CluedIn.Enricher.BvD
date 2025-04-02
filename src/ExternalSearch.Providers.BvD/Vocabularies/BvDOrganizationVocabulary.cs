@@ -157,6 +157,7 @@ public class BvDOrganizationVocabulary : SimpleVocabulary
             NumberYears = group.Add(new VocabularyKey("numberYears"));
             GuoBvdIdNumber = group.Add(new VocabularyKey("guoBvdIdNumber"));
             RawMatches = group.Add(new VocabularyKey("rawMatches"));
+            BvdIdNeedsAttention = group.Add(new VocabularyKey("bvdIdNeedsAttention"));
         });
     }
 
@@ -290,4 +291,5 @@ public class BvDOrganizationVocabulary : SimpleVocabulary
     public VocabularyKey NumberYears { get; protected set; }
     public VocabularyKey GuoBvdIdNumber { get; protected set; }
     public VocabularyKey RawMatches { get; protected set; }
+    public VocabularyKey BvdIdNeedsAttention { get; protected set; }
 }

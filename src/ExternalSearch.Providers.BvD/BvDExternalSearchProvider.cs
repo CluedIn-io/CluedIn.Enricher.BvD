@@ -458,10 +458,11 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
                     {
                         var firstMatchCompany = matchCompanies.FirstOrDefault();
 
-                        foreach (var searchCompany in SearchCompanies(context, query, apiToken, selectProperties, client, firstMatchCompany?.BvDId))
-                        {
-                            yield return searchCompany;
-                        }
+                        var searchCompany = SearchCompanies(context, query, apiToken, selectProperties, client,
+                            firstMatchCompany?.BvDId);
+                        searchCompany.Data.First().Add("BvdIdNeedsAttention", false);
+
+                        yield return new ExternalSearchQueryResult<BvDResponse>(query, searchCompany);
                     }
                     else 
                     {
@@ -480,7 +481,11 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
                             [
                                 new Dictionary<string, object>
                                 {
-                                    {"RawMatches", JsonConvert.SerializeObject(matchCompanies)},
+                                    {"RawMatches", JsonConvert.SerializeObject(matchCompanies, new JsonSerializerSettings
+                                    {
+                                        NullValueHandling = NullValueHandling.Ignore
+                                    })},
+                                    {"BvdIdNeedsAttention", true}
                                 }
                             ]
                         };
@@ -492,18 +497,19 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
                 {
                     // If bvd id exist in the list of possible match companies
                     var matchCompany = matchCompanies.FirstOrDefault(x => x.BvDId == bvd);
-                    foreach (var searchCompany in SearchCompanies(context, query, apiToken, selectProperties, client, matchCompany?.BvDId))
-                    {
-                        yield return searchCompany;
-                    }
+                    var searchCompany = SearchCompanies(context, query, apiToken, selectProperties, client,
+                        matchCompany?.BvDId);
+                    searchCompany.Data.First().Add("BvdIdNeedsAttention", false);
+
+                    yield return new ExternalSearchQueryResult<BvDResponse>(query, searchCompany);
                 }
             }
             else
             {
-                foreach (var searchCompany in SearchCompanies(context, query, apiToken, selectProperties, client, bvd))
-                {
-                    yield return searchCompany;
-                }
+                var searchCompany = SearchCompanies(context, query, apiToken, selectProperties, client, bvd);
+                searchCompany.Data.First().Add("BvdIdNeedsAttention", false);
+
+                yield return new ExternalSearchQueryResult<BvDResponse>(query, searchCompany);
             }
         }
     }
@@ -660,7 +666,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
         }
     }
 
-    private static IEnumerable<IExternalSearchQueryResult> SearchCompanies(ExecutionContext context, IExternalSearchQuery query, string apiToken,
+    private static BvDResponse SearchCompanies(ExecutionContext context, IExternalSearchQuery query, string apiToken,
     string selectProperties, RestClient client, string bvd)
     {
         if (string.IsNullOrEmpty(bvd))
@@ -701,7 +707,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
 
                     context.Log.LogInformation(diagnostic);
 
-                    yield return new ExternalSearchQueryResult<BvDResponse>(query, response.Data);
+                    return response.Data;
                 }
                 else
                 {
@@ -728,7 +734,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
 
                 context.Log.LogWarning(diagnostic);
 
-                yield break;
+                return null;
             }
             else if (response.ErrorException != null)
             {
@@ -752,6 +758,8 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
             context.Log.LogTrace("Finished external search for Id: '{Id}' QueryKey: '{QueryKey}'", query.Id,
                 query.QueryKey);
         }
+
+        return null;
     }
 
     private ConnectionVerificationResult ConstructVerifyConnectionResponse<T>(IRestResponse<T> response)
