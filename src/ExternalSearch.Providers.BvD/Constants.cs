@@ -122,12 +122,12 @@ public static class Constants
         },
         new()
         {
-            DisplayName = "Score Range",
+            DisplayName = "Score Limit",
             Type = "input",
             IsRequired = true,
             Name = KeyName.ScoreLimit,
             Help =
-                "The score range required for matches to be considered in the validation process. Only matches within this range will be validated (e.g., if you enter 0.5-1, only matches with scores between 0.5 and 1 will be validated).",
+                "The score limit required for matches to be considered in the validation process. (e.g., if you enter 0.5, only matches with scores more than 0.5 will be used for validation).",
             DisplayDependencies =
             [
                 new ControlDisplayDependency
