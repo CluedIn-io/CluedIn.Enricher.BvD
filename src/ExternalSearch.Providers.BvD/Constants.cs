@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using CluedIn.Core.Data.Relational;
 using CluedIn.Core.Providers;
 
@@ -54,13 +55,332 @@ public static class Constants
     public static string Domain { get; set; } =
         "https://www.moodys.com/web/en/us/capabilities/company-reference-data/orbis.html";
 
+    public static IEnumerable<Control> Properties { get; set; } = new List<Control>
+    {
+        //new()
+        //{
+        //    DisplayName = "Orbis Id",
+        //    Type = "vocabularyKeySelector",
+        //    IsRequired = false,
+        //    Name = KeyName.OrbisId,
+        //    Help =
+        //        "The vocabulary key that contains the Orbis Id of companies you want to enrich (e.g., organization.orbis)."
+        //},
+        new()
+        {
+            DisplayName = "BvD ID",
+            Type = "vocabularyKeySelector",
+            IsRequired = false,
+            Name = KeyName.BvDId,
+            Help =
+                "The vocabulary key that contains BvD IDs of companies you want to enrich (e.g., organization.bvd)."
+        },
+        //new()
+        //{
+        //    DisplayName = "Lei Id",
+        //    Type = "vocabularyKeySelector",
+        //    IsRequired = false,
+        //    Name = KeyName.LeiId,
+        //    Help =
+        //        "The vocabulary key that contains the Lei Id of companies you want to enrich (e.g., organization.lei)."
+        //},
+        new()
+        {
+            DisplayName = "Enrichment properties",
+            Type = "input",
+            IsRequired = false,
+            Name = KeyName.SelectProperties,
+            Help =
+                "The properties that should be returned to CluedIn as a result of enrichment (e.g., NAME,CITY,ADDRESS_LINE1)."
+        },
+        new()
+        {
+            DisplayName = "Validate BvD ID",
+            Type = "checkbox",
+            IsRequired = false,
+            Name = KeyName.ValidateBvDId,
+            Help =
+                "Toggle to control whether the BvD ID needs to be validated before enrichment."
+        },
+        new()
+        {
+            DisplayName = "Auto Enrich with First and Highest Score Match",
+            Type = "checkbox",
+            IsRequired = false,
+            Name = KeyName.MatchFirstAndHighest,
+            Help =
+                "Toggle to control whether the enrichment should be based on the first and highest score match if BvD ID validation failed.",
+            DisplayDependencies =
+            [
+                new ControlDisplayDependency
+                {
+                    Name = KeyName.ValidateBvDId,
+                    Operator = ControlDependencyOperator.Exists,
+                    UnfulfilledAction = ControlDependencyUnfulfilledAction.Hidden,
+                }
+            ],
+        },
+        new()
+        {
+            DisplayName = "Score Range",
+            Type = "input",
+            IsRequired = true,
+            Name = KeyName.ScoreLimit,
+            Help =
+                "The score range required for matches to be considered in the validation process. Only matches within this range will be validated (e.g., if you enter 0.5-1, only matches with scores between 0.5 and 1 will be validated).",
+            DisplayDependencies =
+            [
+                new ControlDisplayDependency
+                {
+                    Name = KeyName.ValidateBvDId,
+                    Operator = ControlDependencyOperator.Exists,
+                    UnfulfilledAction = ControlDependencyUnfulfilledAction.Hidden,
+                }
+            ],
+        },
+        new()
+        {
+            DisplayName = "Name",
+            Type = "vocabularyKeySelector",
+            IsRequired = false,
+            Name = KeyName.Name,
+            Help =
+                "The vocabulary key that contains the names of companies you want to enrich (e.g., organization.name).",
+            DisplayDependencies =
+            [
+                new ControlDisplayDependency
+                {
+                    Name = KeyName.ValidateBvDId,
+                    Operator = ControlDependencyOperator.Exists,
+                    UnfulfilledAction = ControlDependencyUnfulfilledAction.Hidden,
+                }
+            ],
+        },
+        new()
+        {
+            DisplayName = "Country",
+            Type = "vocabularyKeySelector",
+            IsRequired = false,
+            Name = KeyName.Country,
+            Help =
+                "The vocabulary key that contains the countries of companies you want to enrich (e.g., organization.address.country).",
+            DisplayDependencies =
+            [
+                new ControlDisplayDependency
+                {
+                    Name = KeyName.ValidateBvDId,
+                    Operator = ControlDependencyOperator.Exists,
+                    UnfulfilledAction = ControlDependencyUnfulfilledAction.Hidden,
+                }
+            ],
+        },
+        new()
+        {
+            DisplayName = "Address",
+            Type = "vocabularyKeySelector",
+            IsRequired = false,
+            Name = KeyName.Address,
+            Help =
+                "The vocabulary key that contains the addresses of companies you want to enrich (e.g., organization.address).",
+            DisplayDependencies =
+            [
+                new ControlDisplayDependency
+                {
+                    Name = KeyName.ValidateBvDId,
+                    Operator = ControlDependencyOperator.Exists,
+                    UnfulfilledAction = ControlDependencyUnfulfilledAction.Hidden,
+                }
+            ],
+        },
+        new()
+        {
+            DisplayName = "City",
+            Type = "vocabularyKeySelector",
+            IsRequired = false,
+            Name = KeyName.City,
+            Help =
+                "The vocabulary key that contains the cities of companies you want to enrich (e.g., organization.address.city).",
+            DisplayDependencies =
+            [
+                new ControlDisplayDependency
+                {
+                    Name = KeyName.ValidateBvDId,
+                    Operator = ControlDependencyOperator.Exists,
+                    UnfulfilledAction = ControlDependencyUnfulfilledAction.Hidden,
+                }
+            ],
+        },
+        new()
+        {
+            DisplayName = "Post Code",
+            Type = "vocabularyKeySelector",
+            IsRequired = false,
+            Name = KeyName.PostCode,
+            Help =
+                "The vocabulary key that contains the post codes of companies you want to enrich (e.g., organization.address.postCode).",
+            DisplayDependencies =
+            [
+                new ControlDisplayDependency
+                {
+                    Name = KeyName.ValidateBvDId,
+                    Operator = ControlDependencyOperator.Exists,
+                    UnfulfilledAction = ControlDependencyUnfulfilledAction.Hidden,
+                }
+            ],
+        },
+        new()
+        {
+            DisplayName = "State",
+            Type = "vocabularyKeySelector",
+            IsRequired = false,
+            Name = KeyName.State,
+            Help =
+                "The vocabulary key that contains the states of companies you want to enrich (e.g., organization.address.state).",
+            DisplayDependencies =
+            [
+                new ControlDisplayDependency
+                {
+                    Name = KeyName.ValidateBvDId,
+                    Operator = ControlDependencyOperator.Exists,
+                    UnfulfilledAction = ControlDependencyUnfulfilledAction.Hidden,
+                }
+            ],
+        },
+        new()
+        {
+            DisplayName = "Website",
+            Type = "vocabularyKeySelector",
+            IsRequired = false,
+            Name = KeyName.Website,
+            Help =
+                "The vocabulary key that contains the websites of companies you want to enrich (e.g., organization.website).",
+            DisplayDependencies =
+            [
+                new ControlDisplayDependency
+                {
+                    Name = KeyName.ValidateBvDId,
+                    Operator = ControlDependencyOperator.Exists,
+                    UnfulfilledAction = ControlDependencyUnfulfilledAction.Hidden,
+                }
+            ],
+        },
+        new()
+        {
+            DisplayName = "Email",
+            Type = "vocabularyKeySelector",
+            IsRequired = false,
+            Name = KeyName.Email,
+            Help =
+                "The vocabulary key that contains the emails of companies you want to enrich (e.g., organization.contact.email).",
+            DisplayDependencies =
+            [
+                new ControlDisplayDependency
+                {
+                    Name = KeyName.ValidateBvDId,
+                    Operator = ControlDependencyOperator.Exists,
+                    UnfulfilledAction = ControlDependencyUnfulfilledAction.Hidden,
+                }
+            ],
+        },
+        new()
+        {
+            DisplayName = "Phone number",
+            Type = "vocabularyKeySelector",
+            IsRequired = false,
+            Name = KeyName.Phone,
+            Help =
+                "The vocabulary key that contains the phone numbers of companies you want to enrich (e.g., organization.phoneNumber).",
+            DisplayDependencies =
+            [
+                new ControlDisplayDependency
+                {
+                    Name = KeyName.ValidateBvDId,
+                    Operator = ControlDependencyOperator.Exists,
+                    UnfulfilledAction = ControlDependencyUnfulfilledAction.Hidden,
+                }
+            ],
+        },
+        new()
+        {
+            DisplayName = "Fax number",
+            Type = "vocabularyKeySelector",
+            IsRequired = false,
+            Name = KeyName.Fax,
+            Help =
+                "The vocabulary key that contains the fax numbers of companies you want to enrich (e.g., organization.fax).",
+            DisplayDependencies =
+            [
+                new ControlDisplayDependency
+                {
+                    Name = KeyName.ValidateBvDId,
+                    Operator = ControlDependencyOperator.Exists,
+                    UnfulfilledAction = ControlDependencyUnfulfilledAction.Hidden,
+                }
+            ],
+        },
+        new()
+        {
+            DisplayName = "National ID",
+            Type = "vocabularyKeySelector",
+            IsRequired = false,
+            Name = KeyName.NationalId,
+            Help =
+                "The vocabulary key that contains the national IDs of companies you want to enrich (e.g., organization.nationalId).",
+            DisplayDependencies =
+            [
+                new ControlDisplayDependency
+                {
+                    Name = KeyName.ValidateBvDId,
+                    Operator = ControlDependencyOperator.Exists,
+                    UnfulfilledAction = ControlDependencyUnfulfilledAction.Hidden,
+                }
+            ],
+        },
+        new()
+        {
+            DisplayName = "Ticker",
+            Type = "vocabularyKeySelector",
+            IsRequired = false,
+            Name = KeyName.Ticker,
+            Help =
+                "The vocabulary key that contains the ticker symbols of companies you want to enrich (e.g., organization.ticker).",
+            DisplayDependencies =
+            [
+                new ControlDisplayDependency
+                {
+                    Name = KeyName.ValidateBvDId,
+                    Operator = ControlDependencyOperator.Exists,
+                    UnfulfilledAction = ControlDependencyUnfulfilledAction.Hidden,
+                }
+            ],
+        },
+        new()
+        {
+            DisplayName = "ISIN",
+            Type = "vocabularyKeySelector",
+            IsRequired = false,
+            Name = KeyName.Isin,
+            Help =
+                "The vocabulary key that contains the ISIN codes of companies you want to enrich (e.g., organization.isin).",
+            DisplayDependencies =
+            [
+                new ControlDisplayDependency
+                {
+                    Name = KeyName.ValidateBvDId,
+                    Operator = ControlDependencyOperator.Exists,
+                    UnfulfilledAction = ControlDependencyUnfulfilledAction.Hidden,
+                }
+            ],
+        },
+    };
+
     public static AuthMethods AuthMethods { get; set; } = new()
     {
         Token = new List<Control>
         {
             new()
             {
-                DisplayName = "API Access Key",
+                DisplayName = "API Key",
                 Type = "password",
                 IsRequired = true,
                 Name = KeyName.ApiToken,
@@ -78,55 +398,7 @@ public static class Constants
                 Help =
                     "The entity type that defines the golden records you want to enrich (e.g., /Organization)."
             },
-            //new()
-            //{
-            //    DisplayName = "Orbis Id",
-            //    Type = "vocabularyKeySelector",
-            //    IsRequired = false,
-            //    Name = KeyName.OrbisId,
-            //    Help =
-            //        "The vocabulary key that contains the Orbis Id of companies you want to enrich (e.g., organization.orbis)."
-            //},
-            new()
-            {
-                DisplayName = "BvD Id",
-                Type = "vocabularyKeySelector",
-                IsRequired = false,
-                Name = KeyName.BvDId,
-                Help =
-                    "The vocabulary key that contains the BvD Id of companies you want to enrich (e.g., organization.bvd)."
-            },
-            //new()
-            //{
-            //    DisplayName = "Lei Id",
-            //    Type = "vocabularyKeySelector",
-            //    IsRequired = false,
-            //    Name = KeyName.LeiId,
-            //    Help =
-            //        "The vocabulary key that contains the Lei Id of companies you want to enrich (e.g., organization.lei)."
-            //},
-            new()
-            {
-                DisplayName = "Select Properties",
-                Type = "input",
-                IsRequired = false,
-                Name = KeyName.SelectProperties,
-                Help =
-                    "The properties to be selected from the enrichment result. (e.g., NAME,CITY,ADDRESS_LINE1,...)"
-            }
-        }
-    };
-
-    public static IEnumerable<Control> Properties { get; set; } = new List<Control>
-    {
-        // NOTE: Leaving this commented as an example - BF
-        //new()
-        //{
-        //    displayName = "Some Data",
-        //    type = "input",
-        //    isRequired = true,
-        //    name = "someData"
-        //}
+        }.Concat(Properties)
     };
 
     public static Guide Guide { get; set; } = new() { Instructions = Instruction };
@@ -141,5 +413,21 @@ public static class Constants
         public const string BvDId = "bvdId";
         public const string LeiId = "leiId";
         public const string SelectProperties = "selectProperties";
+        public const string ValidateBvDId = "validateBvDId";
+        public const string MatchFirstAndHighest = "matchFirstAndHighest";
+        public const string ScoreLimit = "scoreLimit";
+        public const string Name = "name";
+        public const string City = "city";
+        public const string Country = "country";
+        public const string Address = "address";
+        public const string Email = "email";
+        public const string Website = "website";
+        public const string NationalId = "nationalId";
+        public const string Phone = "phone";
+        public const string Fax = "fax";
+        public const string PostCode = "postCode";
+        public const string State = "state";
+        public const string Ticker = "ticker";
+        public const string Isin = "isin";
     }
 }
