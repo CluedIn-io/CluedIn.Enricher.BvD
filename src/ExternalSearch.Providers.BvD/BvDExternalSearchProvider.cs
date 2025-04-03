@@ -3,19 +3,21 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Text.RegularExpressions;
+using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
+using RestSharp;
 using CluedIn.Core;
 using CluedIn.Core.Connectors;
 using CluedIn.Core.Data;
 using CluedIn.Core.Data.Parts;
 using CluedIn.Core.Data.Relational;
+using CluedIn.Core.Data.Vocabularies;
 using CluedIn.Core.ExternalSearch;
 using CluedIn.Core.Providers;
+using CluedIn.Crawling.Helpers;
 using CluedIn.ExternalSearch.Provider;
 using CluedIn.ExternalSearch.Providers.BvD.Models;
 using CluedIn.ExternalSearch.Providers.BvD.Vocabularies;
-using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
-using RestSharp;
 using EntityType = CluedIn.Core.Data.EntityType;
 // ReSharper disable VirtualMemberCallInConstructor
 
@@ -31,7 +33,33 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
      **********************************************************************************************************/
 
     private static readonly EntityType[] _defaultAcceptedEntityTypes = [EntityType.Organization];
-
+    private static readonly List<string> _selectMatchFields =
+    [
+        "Match.Hint",
+        "Match.Score",
+        "Match.Name",
+        "Match.Name_Local",
+        "Match.MatchedName",
+        "Match.MatchedName_Type",
+        "Match.Address",
+        "Match.Postcode",
+        "Match.City",
+        "Match.Country",
+        "Match.Address_Type",
+        "Match.PhoneOrFax",
+        "Match.EmailOrWebsite",
+        "Match.National_Id",
+        "Match.NationalIdLabel",
+        "Match.State",
+        "Match.Region",
+        "Match.LegalForm",
+        "Match.ConsolidationCode",
+        "Match.Status",
+        "Match.Ticker",
+        "Match.CustomRule",
+        "Match.Isin",
+        "Match.BvDId"
+    ];
     /**********************************************************************************************************
      * CONSTRUCTORS
      **********************************************************************************************************/
@@ -67,7 +95,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
         IDictionary<string, object> config, IProvider provider)
     {
         var jobData = new BvDExternalSearchJobData(config);
-        return InternalExecuteSearch(context, query, jobData.ApiToken, jobData.SelectProperties);
+        return InternalExecuteSearch(context, query, jobData.ApiToken, jobData.SelectProperties, jobData);
     }
 
     public IEnumerable<Clue> BuildClues(ExecutionContext context, IExternalSearchQuery query,
@@ -182,7 +210,37 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
     {
         IDictionary<string, object> configDict = config.ToDictionary(entry => entry.Key, entry => entry.Value);
         var jobData = new BvDExternalSearchJobData(configDict);
-        var client = new RestClient("https://api.bvdinfo.com/v1/orbis/Companies/data");
+        var client = new RestClient("https://api.bvdinfo.com/v1/orbis/Companies");
+        var matchCondition = new MatchCondition
+        {
+            Criteria = new Dictionary<string, object>
+            {
+                { "Name", "Google" },
+                { "Country", "US" }
+            },
+            Options = new Dictionary<string, object>
+            {
+                { "ScoreLimit", 0.85 },
+            }
+        };
+
+        var bvdMatchesRequestBody = new BvDMatchesRequest
+        {
+            Match = matchCondition,
+            Select = _selectMatchFields
+        };
+
+        var matchRequest = new RestRequest("match", Method.POST);
+        matchRequest.AddHeader("Content-Type", "application/json");
+        matchRequest.AddHeader("ApiToken", jobData.ApiToken);
+        matchRequest.AddJsonBody(bvdMatchesRequestBody);
+
+        var matchResponse = client.ExecuteAsync<List<Matches>>(matchRequest).Result;
+
+        if (!matchResponse.IsSuccessful)
+        {
+            return ConstructVerifyConnectionResponse(matchResponse);
+        }
 
         var bvdRequest = new BvDRequest
         {
@@ -195,7 +253,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
                 : null
         };
 
-        var request = new RestRequest(string.Empty, Method.POST);
+        var request = new RestRequest("data", Method.POST);
         request.AddHeader("Content-Type", "application/json");
         request.AddHeader("ApiToken", jobData.ApiToken);
         request.AddJsonBody(bvdRequest);
@@ -264,7 +322,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
             //bool orbis(string value) => existingResults.Any(r => string.Equals(r.Data.Data.First().ORBISID, value, StringComparison.InvariantCultureIgnoreCase));
             bool bvd(string value)
             {
-                return existingResults.Any(r => string.Equals(r.Data.Data.First().BvdIdNumber, value,
+                return existingResults.Any(r => string.Equals(r.Data?.Data?.FirstOrDefault()?.TryGetValue("BVD_ID_NUMBER", out var bvdId) == true ? bvdId.ToString() : null, value,
                     StringComparison.InvariantCultureIgnoreCase));
             }
 
@@ -291,6 +349,38 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
             //    leiId = request.QueryParameters.GetValue<string, HashSet<string>>(config.LeiId, []);
             //}
 
+            var configMap = config.ToDictionary();
+            var name = GetValue(request, configMap, Constants.KeyName.Name, Core.Data.Vocabularies.Vocabularies.CluedInOrganization.OrganizationName);
+            var country = GetValue(request, configMap, Constants.KeyName.Country, Core.Data.Vocabularies.Vocabularies.CluedInOrganization.AddressCountryCode);
+            var address = GetValue(request, configMap, Constants.KeyName.Address, Core.Data.Vocabularies.Vocabularies.CluedInOrganization.Address);
+            var city = GetValue(request, configMap, Constants.KeyName.City, Core.Data.Vocabularies.Vocabularies.CluedInOrganization.AddressCity);
+            var postCode = GetValue(request, configMap, Constants.KeyName.PostCode, Core.Data.Vocabularies.Vocabularies.CluedInOrganization.AddressZipCode);
+            var state = GetValue(request, configMap, Constants.KeyName.State, Core.Data.Vocabularies.Vocabularies.CluedInOrganization.AddressState);
+            var website = GetValue(request, configMap, Constants.KeyName.Website, Core.Data.Vocabularies.Vocabularies.CluedInOrganization.Website);
+            var email = GetValue(request, configMap, Constants.KeyName.Email, Core.Data.Vocabularies.Vocabularies.CluedInOrganization.ContactEmail);
+            var phone = GetValue(request, configMap, Constants.KeyName.Phone, Core.Data.Vocabularies.Vocabularies.CluedInOrganization.PhoneNumber);
+            var fax = GetValue(request, configMap, Constants.KeyName.Fax, Core.Data.Vocabularies.Vocabularies.CluedInOrganization.Fax);
+            var nationalId = request.QueryParameters.GetValue(config.NationalId, []);
+            var ticker = request.QueryParameters.GetValue(config.Ticker, []);
+            var isin = request.QueryParameters.GetValue(config.Isin, []);
+
+            var conditions = new Dictionary<string, string>
+            {
+                {nameof(Constants.KeyName.Name),       name.FirstOrDefault() ?? string.Empty},
+                {nameof(Constants.KeyName.Country),    country.FirstOrDefault() ?? string.Empty},
+                {nameof(Constants.KeyName.Address),    address.FirstOrDefault() ?? string.Empty},
+                {nameof(Constants.KeyName.City),       city.FirstOrDefault() ?? string.Empty},
+                {nameof(Constants.KeyName.PostCode),   postCode.FirstOrDefault() ?? string.Empty},
+                {nameof(Constants.KeyName.State),      state.FirstOrDefault() ?? string.Empty},
+                {nameof(Constants.KeyName.Website),    website.FirstOrDefault() ?? string.Empty},
+                {nameof(Constants.KeyName.Email),      email.FirstOrDefault() ?? string.Empty},
+                {nameof(Constants.KeyName.Phone),      phone.FirstOrDefault() ?? string.Empty},
+                {nameof(Constants.KeyName.Fax),        fax.FirstOrDefault() ?? string.Empty},
+                {nameof(Constants.KeyName.NationalId), nationalId.FirstOrDefault() ?? string.Empty},
+                {nameof(Constants.KeyName.Ticker),     ticker.FirstOrDefault() ?? string.Empty},
+                {nameof(Constants.KeyName.Isin),       isin.FirstOrDefault() ?? string.Empty}
+            };
+
             var filteredValues = bvdId.Where(v => !bvd(v)).ToArray();
 
             if (!filteredValues.Any())
@@ -308,8 +398,9 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
                         "External search query produced, ExternalSearchQueryParameter: '{Identifier}' EntityType: '{EntityCode}' Value: '{SanitizedValue}'",
                         ExternalSearchQueryParameter.Identifier, entityType.Code, value);
 
-                    yield return new ExternalSearchQuery(this, entityType, ExternalSearchQueryParameter.Identifier,
-                        value);
+                    conditions.Add("BvDId", value);
+
+                    yield return new ExternalSearchQuery(this, entityType, conditions);
                 }
             }
 
@@ -318,7 +409,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
     }
 
     private IEnumerable<IExternalSearchQueryResult> InternalExecuteSearch(ExecutionContext context,
-        IExternalSearchQuery query, string apiToken, string selectProperties)
+        IExternalSearchQuery query, string apiToken, string selectProperties, BvDExternalSearchJobData jobData)
     {
         if (string.IsNullOrEmpty(apiToken))
         {
@@ -340,94 +431,85 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
             context.Log.LogTrace("Starting external search for Id: '{Id}' QueryKey: '{QueryKey}'", query.Id,
                 query.QueryKey);
 
-            var bvd = query.QueryParameters[ExternalSearchQueryParameter.Identifier].FirstOrDefault();
-
-            if (string.IsNullOrEmpty(bvd))
+            var bvd = string.Empty;
+            if (query.QueryParameters.TryGetValue("BvDId", out var bvdId))
             {
-                context.Log.LogTrace("No parameter for '{Identifier}' in query, skipping execute search",
-                    ExternalSearchQueryParameter.Identifier);
+                bvd = bvdId.First();
             }
-            else
+
+            var client = new RestClient("https://api.bvdinfo.com/v1/orbis/Companies");
+
+            // If validate bvd id toggle is enabled, get the list of possible match companies for validation,
+            // else use the original bvd id provided
+            if (jobData.ValidateBvDId)
             {
-                bvd = WebUtility.UrlEncode(bvd);
-                var client = new RestClient("https://api.bvdinfo.com/v1/orbis/Companies/data");
+                var matchCompanies = GetMatchCompanies(context, query, jobData, client);
 
-                var bvdRequest = new BvDRequest
+                // If bvd id not exist in the list of possible match companies
+                if (matchCompanies is not { Count: > 0 } || !matchCompanies.Exists(x => x.BvDId == bvd)) 
                 {
-                    Where =
-                    [
-                        new Dictionary<string, string> { { "BvDID", bvd } }
-                    ],
-                    Select = !string.IsNullOrWhiteSpace(selectProperties)
-                        ? selectProperties.Split(',').Select(s => s.Trim()).ToList()
-                        : null
-                };
-
-                var request = new RestRequest(string.Empty, Method.POST);
-                request.AddHeader("Content-Type", "application/json");
-                request.AddHeader("ApiToken", apiToken);
-                request.AddJsonBody(bvdRequest);
-                var response = client.ExecuteAsync<BvDResponse>(request).Result;
-
-                if (response.StatusCode == HttpStatusCode.OK)
-                {
-                    if (response.Data != null && response.Data.SearchSummary.TotalRecordsFound > 0)
+                    if (!matchCompanies.Any())
                     {
-                        var diagnostic =
-                            $"External search for Id: '{query.Id}' QueryKey: '{query.QueryKey}' produced results, CompanyName: '{response.Data.Data.First().Name}'  BvDNumber: '{response.Data.Data.First().Orbisid}'";
-
-                        context.Log.LogInformation(diagnostic);
-
-                        yield return new ExternalSearchQueryResult<BvDResponse>(query, response.Data);
+                        yield break;
                     }
-                    else
+
+                    // If auto match first and highest confidence score match toggle is enabled, search using the bvd id of first match
+                    if (jobData.MatchFirstAndHighest)
                     {
-                        var diagnostic =
-                            $"Failed external search for Id: '{query.Id}' QueryKey: '{query.QueryKey}' - StatusCode: '{response.StatusCode}' Content: '{response.Content}'";
+                        var firstMatchCompany = matchCompanies.FirstOrDefault();
 
-                        context.Log.LogError(diagnostic);
+                        var searchCompany = SearchCompanies(context, query, apiToken, selectProperties, client,
+                            firstMatchCompany?.BvDId);
+                        searchCompany.Data.First().Add("BvdIdNeedsAttention", false);
 
-                        var content = JsonConvert.DeserializeObject<dynamic>(response.Content);
-                        if (content.error != null)
+                        yield return new ExternalSearchQueryResult<BvDResponse>(query, searchCompany);
+                    }
+                    else 
+                    {
+                        // else return list of possible match json
+                        var rawMatch = new BvDResponse
                         {
-                            throw new InvalidOperationException(
-                                $"{content.error.info} - Type: {content.error.type} Code: {content.error.code}");
-                        }
+                            SearchSummary = new SearchSummary
+                            {
+                                TotalRecordsFound = 0,
+                                Offset = 0,
+                                RecordsReturned = 0,
+                                DatabaseInfo = null,
+                                Sort = null
+                            },
+                            Data =
+                            [
+                                new Dictionary<string, object>
+                                {
+                                    {"RawMatches", JsonConvert.SerializeObject(matchCompanies, new JsonSerializerSettings
+                                    {
+                                        NullValueHandling = NullValueHandling.Ignore
+                                    })},
+                                    {"BvdIdNeedsAttention", true}
+                                }
+                            ]
+                        };
 
-                        // TODO else do what with content ? ...
+                        yield return new ExternalSearchQueryResult<BvDResponse>(query, rawMatch);
                     }
-                }
-                else if (response.StatusCode == HttpStatusCode.NoContent ||
-                         response.StatusCode == HttpStatusCode.NotFound)
-                {
-                    var diagnostic =
-                        $"External search for Id: '{query.Id}' QueryKey: '{query.QueryKey}' produced no results - StatusCode: '{response.StatusCode}' Content: '{response.Content}'";
-
-                    context.Log.LogWarning(diagnostic);
-
-                    yield break;
-                }
-                else if (response.ErrorException != null)
-                {
-                    var diagnostic =
-                        $"External search for Id: '{query.Id}' QueryKey: '{query.QueryKey}' produced no results - StatusCode: '{response.StatusCode}' Content: '{response.Content}'";
-
-                    context.Log.LogError(diagnostic, response.ErrorException);
-
-                    throw new AggregateException(response.ErrorException.Message, response.ErrorException);
                 }
                 else
                 {
-                    var diagnostic =
-                        $"Failed external search for Id: '{query.Id}' QueryKey: '{query.QueryKey}' - StatusCode: '{response.StatusCode}' Content: '{response.Content}'";
+                    // If bvd id exist in the list of possible match companies
+                    var matchCompany = matchCompanies.FirstOrDefault(x => x.BvDId == bvd);
+                    var searchCompany = SearchCompanies(context, query, apiToken, selectProperties, client,
+                        matchCompany?.BvDId);
+                    searchCompany.Data.First().Add("BvdIdNeedsAttention", false);
 
-                    context.Log.LogError(diagnostic);
-
-                    throw new ApplicationException(diagnostic);
+                    yield return new ExternalSearchQueryResult<BvDResponse>(query, searchCompany);
                 }
+            }
+            else
+            {
+                var searchCompany = SearchCompanies(context, query, apiToken, selectProperties, client, bvd);
+                searchCompany.Data.First().Add("BvdIdNeedsAttention", false);
 
-                context.Log.LogTrace("Finished external search for Id: '{Id}' QueryKey: '{QueryKey}'", query.Id,
-                    query.QueryKey);
+                yield return new ExternalSearchQueryResult<BvDResponse>(query, searchCompany);
             }
         }
     }
@@ -442,7 +524,245 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
         return GetPrimaryEntityPreviewImage(context, result, request, dummyConfig, dummyProvider);
     }
 
-    private ConnectionVerificationResult ConstructVerifyConnectionResponse(IRestResponse<BvDResponse> response)
+    private static MatchCondition GetMatchCondition(IExternalSearchQuery query, BvDExternalSearchJobData jobData)
+    {
+        var matchCondition = new MatchCondition
+        {
+            Criteria = new Dictionary<string, object>(),
+            Options = new Dictionary<string, object>()
+        };
+
+        if (query.QueryParameters.TryGetValue("Name", out var name))
+        {
+            matchCondition.Criteria.Add("Name", name.First());
+        }
+
+        if (query.QueryParameters.TryGetValue("Country", out var country))
+        {
+            matchCondition.Criteria.Add("Country", country.First());
+        }
+
+        if (query.QueryParameters.TryGetValue("Address", out var address))
+        {
+            matchCondition.Criteria.Add("Address", address.First());
+        }
+        if (query.QueryParameters.TryGetValue("City", out var city))
+        {
+            matchCondition.Criteria.Add("City", city.First());
+        }
+        if (query.QueryParameters.TryGetValue("PostCode", out var postCode))
+        {
+            matchCondition.Criteria.Add("PostCode", postCode.First());
+        }
+
+        if (query.QueryParameters.TryGetValue("State", out var state))
+        {
+            matchCondition.Criteria.Add("State", state.First());
+        }
+
+        if (query.QueryParameters.TryGetValue("Website", out var website) && !string.IsNullOrWhiteSpace(website.First()))
+        {
+            matchCondition.Criteria.Add("EmailOrWebsite", website.First());
+        }
+        else if (query.QueryParameters.TryGetValue("Email", out var email) && !string.IsNullOrWhiteSpace(email.First()))
+        {
+            matchCondition.Criteria.Add("EmailOrWebsite", email.First());
+        }
+
+        if (query.QueryParameters.TryGetValue("Phone", out var phone) && !string.IsNullOrWhiteSpace(phone.First()))
+        {
+            matchCondition.Criteria.Add("PhoneOrFax", phone.First());
+        }
+        else if (query.QueryParameters.TryGetValue("Fax", out var fax) && !string.IsNullOrWhiteSpace(fax.First()))
+        {
+            matchCondition.Criteria.Add("PhoneOrFax", fax.First());
+        }
+
+        if (query.QueryParameters.TryGetValue("NationalId", out var nationalId))
+        {
+            matchCondition.Criteria.Add("NationalId", nationalId.First());
+        }
+
+        if (query.QueryParameters.TryGetValue("Ticker", out var ticker))
+        {
+            matchCondition.Criteria.Add("Ticker", ticker.First());
+        }
+
+        if (query.QueryParameters.TryGetValue("Isin", out var isin))
+        {
+            matchCondition.Criteria.Add("Isin", isin.First());
+        }
+
+        matchCondition.Options.Add("ScoreLimit", jobData.ScoreLimit);
+
+        return matchCondition;
+    }
+
+    private static List<Matches> GetMatchCompanies(ExecutionContext context, IExternalSearchQuery query,
+    BvDExternalSearchJobData jobData, RestClient client)
+    {
+        var bvdRequest = new BvDMatchesRequest
+        {
+            Match = GetMatchCondition(query, jobData),
+            Select = _selectMatchFields
+        };
+
+        var request = new RestRequest("match", Method.POST);
+        request.AddHeader("Content-Type", "application/json");
+        request.AddHeader("ApiToken", jobData.ApiToken);
+        request.AddJsonBody(bvdRequest);
+        var response = client.ExecuteAsync<List<Matches>>(request).Result;
+
+        if (response.StatusCode == HttpStatusCode.OK)
+        {
+            var diagnostic =
+                $"External search (validation) for Id: '{query.Id}' QueryKey: '{query.QueryKey}' produced no results - StatusCode: '{response.StatusCode}' Content: '{response.Content}'";
+
+            if (response.Data is not { Count: > 0 })
+            {
+                context.Log.LogWarning(diagnostic);
+                return [];
+            }
+
+            var data = response.Data?.FirstOrDefault();
+            var name = data?.Name;
+
+            diagnostic =
+                $"External search (validation) for Id: '{query.Id}' QueryKey: '{query.QueryKey}' produced results, CompanyName: '{name}'";
+
+            context.Log.LogInformation(diagnostic);
+
+            return response.Data;
+
+        }
+
+        if (response.StatusCode is HttpStatusCode.NoContent or HttpStatusCode.NotFound)
+        {
+            var diagnostic =
+                $"External search (validation) for Id: '{query.Id}' QueryKey: '{query.QueryKey}' produced no results - StatusCode: '{response.StatusCode}' Content: '{response.Content}'";
+
+            context.Log.LogWarning(diagnostic);
+
+            return [];
+        }
+
+        if (response.ErrorException != null)
+        {
+            var diagnostic =
+                $"External search (validation) for Id: '{query.Id}' QueryKey: '{query.QueryKey}' produced no results - StatusCode: '{response.StatusCode}' Content: '{response.Content}'";
+
+            context.Log.LogError(diagnostic, response.ErrorException);
+
+            throw new AggregateException(response.ErrorException.Message, response.ErrorException);
+        }
+        else
+        {
+            var diagnostic =
+                $"Failed external search (validation) for Id: '{query.Id}' QueryKey: '{query.QueryKey}' - StatusCode: '{response.StatusCode}' Content: '{response.Content}'";
+
+            context.Log.LogError(diagnostic);
+
+            throw new ApplicationException(diagnostic);
+        }
+    }
+
+    private static BvDResponse SearchCompanies(ExecutionContext context, IExternalSearchQuery query, string apiToken,
+    string selectProperties, RestClient client, string bvd)
+    {
+        if (string.IsNullOrEmpty(bvd))
+        {
+            context.Log.LogTrace("No parameter for '{Identifier}' in query, skipping execute search",
+                ExternalSearchQueryParameter.Identifier);
+        }
+        else
+        {
+            bvd = WebUtility.UrlEncode(bvd);
+            var bvdRequest = new BvDRequest
+            {
+                Where =
+                [
+                    new Dictionary<string, string> { { "BvDID", bvd } }
+                ],
+                Select = !string.IsNullOrWhiteSpace(selectProperties)
+                    ? selectProperties.Split(',').Select(s => s.Trim()).ToList()
+                    : null
+            };
+
+            var request = new RestRequest("data", Method.POST);
+            request.AddHeader("Content-Type", "application/json");
+            request.AddHeader("ApiToken", apiToken);
+            request.AddJsonBody(bvdRequest);
+            var response = client.ExecuteAsync<BvDResponse>(request).Result;
+
+            if (response.StatusCode == HttpStatusCode.OK)
+            {
+                if (response.Data != null && response.Data.SearchSummary.TotalRecordsFound > 0)
+                {
+                    var data = response.Data?.Data?.FirstOrDefault();
+                    var name = data?.TryGetValue("NAME", out var value) is true ? value?.ToString() : string.Empty;
+                    var bvdNumber = data?.TryGetValue("BVD_ID_NUMBER", out var value1) is true ? value1?.ToString() : string.Empty;
+
+                    var diagnostic =
+                        $"External search for Id: '{query.Id}' QueryKey: '{query.QueryKey}' produced results, CompanyName: '{name}'  BvDNumber: '{bvdNumber}'";
+
+                    context.Log.LogTrace(diagnostic);
+
+                    return response.Data;
+                }
+                else
+                {
+                    var diagnostic =
+                        $"Failed external search for Id: '{query.Id}' QueryKey: '{query.QueryKey}' - StatusCode: '{response.StatusCode}' Content: '{response.Content}'";
+
+                    context.Log.LogError(diagnostic);
+
+                    var content = JsonConvert.DeserializeObject<dynamic>(response.Content);
+                    if (content.error != null)
+                    {
+                        throw new InvalidOperationException(
+                            $"{content.error.info} - Type: {content.error.type} Code: {content.error.code}");
+                    }
+
+                    // TODO else do what with content ? ...
+                }
+            }
+            else if (response.StatusCode == HttpStatusCode.NoContent ||
+                     response.StatusCode == HttpStatusCode.NotFound)
+            {
+                var diagnostic =
+                    $"External search for Id: '{query.Id}' QueryKey: '{query.QueryKey}' produced no results - StatusCode: '{response.StatusCode}' Content: '{response.Content}'";
+
+                context.Log.LogWarning(diagnostic);
+
+                return null;
+            }
+            else if (response.ErrorException != null)
+            {
+                var diagnostic =
+                    $"External search for Id: '{query.Id}' QueryKey: '{query.QueryKey}' produced no results - StatusCode: '{response.StatusCode}' Content: '{response.Content}'";
+
+                context.Log.LogError(diagnostic, response.ErrorException);
+
+                throw new AggregateException(response.ErrorException.Message, response.ErrorException);
+            }
+            else
+            {
+                var diagnostic =
+                    $"Failed external search for Id: '{query.Id}' QueryKey: '{query.QueryKey}' - StatusCode: '{response.StatusCode}' Content: '{response.Content}'";
+
+                context.Log.LogError(diagnostic);
+
+                throw new ApplicationException(diagnostic);
+            }
+
+            context.Log.LogTrace("Finished external search for Id: '{Id}' QueryKey: '{QueryKey}'", query.Id,
+                query.QueryKey);
+        }
+
+        return null;
+    }
+
+    private ConnectionVerificationResult ConstructVerifyConnectionResponse<T>(IRestResponse<T> response)
     {
         try
         {
@@ -464,13 +784,34 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
                 RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.IgnorePatternWhitespace);
             var isHtml = regex.IsMatch(response.Content);
 
-            var bvdErrorResponse = JsonConvert.DeserializeObject<BvDErrorResponse>(response.Content);
+            if (response.IsSuccessful)
+            {
+                return new ConnectionVerificationResult(response.IsSuccessful, string.Empty);
+            }
 
-            var errorMessage = response.IsSuccessful
-                ? string.Empty
-                : string.IsNullOrWhiteSpace(bvdErrorResponse.Found) || isHtml
+            var bvdErrorResponse = JsonConvert.DeserializeObject<BvDErrorResponse>(response.Content);
+            var formattedErrorMessage = string.Empty;
+
+            if (bvdErrorResponse.At != null)
+            {
+                formattedErrorMessage =
+                    $"Error at: \"{bvdErrorResponse.At}\"";
+            }
+
+            if (bvdErrorResponse.Found is { Count: > 0 })
+            {
+                formattedErrorMessage += $", Found: \"{bvdErrorResponse.Found.First().Value}\"";
+
+            }
+
+            if (bvdErrorResponse.Expect is { Count: > 0 })
+            {
+                formattedErrorMessage += $", Expect: \"{bvdErrorResponse.Expect.First().Value}\"";
+            }
+
+            var errorMessage = bvdErrorResponse.At == null && bvdErrorResponse.Found == null && bvdErrorResponse.Expect == null || isHtml
                     ? $"{errorMessageBase} This could be due to breaking changes in the external system."
-                    : $"{errorMessageBase} {bvdErrorResponse.Found}.";
+                    : $"{errorMessageBase} {formattedErrorMessage}.";
 
             return new ConnectionVerificationResult(response.IsSuccessful, errorMessage);
         }
@@ -499,143 +840,67 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
         metadata.Name = request.EntityMetaData.Name;
         metadata.OriginEntityCode = request.EntityMetaData.OriginEntityCode;
 
-        metadata.Properties[BvDVocabulary.Organization.Name] = data.Name;
-        metadata.Properties[BvDVocabulary.Organization.AddressLine1] = data.AddressLine1;
-        metadata.Properties[BvDVocabulary.Organization.AddressLine2] = data.AddressLine2;
-        metadata.Properties[BvDVocabulary.Organization.AddressLine3] = data.AddressLine3;
-        metadata.Properties[BvDVocabulary.Organization.AddressLine4] = data.AddressLine4;
-        metadata.Properties[BvDVocabulary.Organization.Postcode] = data.Postcode;
-        metadata.Properties[BvDVocabulary.Organization.City] = data.City;
-        metadata.Properties[BvDVocabulary.Organization.CityStandardized] = data.CityStandardized;
-        metadata.Properties[BvDVocabulary.Organization.Country] = data.Country;
-        metadata.Properties[BvDVocabulary.Organization.CountryIsoCode] = data.CountryIsoCode;
-        metadata.Properties[BvDVocabulary.Organization.CountryRegion] = data.CountryRegion;
-        metadata.Properties[BvDVocabulary.Organization.CountryRegionType] = data.CountryRegionType;
-        metadata.Properties[BvDVocabulary.Organization.Nuts1] = data.Nuts1;
-        metadata.Properties[BvDVocabulary.Organization.Nuts2] = data.Nuts2;
-        metadata.Properties[BvDVocabulary.Organization.Nuts3] = data.Nuts3;
-        metadata.Properties[BvDVocabulary.Organization.WorldRegion] = data.WorldRegion;
-        metadata.Properties[BvDVocabulary.Organization.UsState] = data.UsState;
-        metadata.Properties[BvDVocabulary.Organization.AddressType] = data.AddressType;
-        metadata.Properties[BvDVocabulary.Organization.PhoneNumber] = data.PhoneNumber;
-        metadata.Properties[BvDVocabulary.Organization.FaxNumber] = data.FaxNumber;
-        metadata.Properties[BvDVocabulary.Organization.Domain] = data.Domain;
-        metadata.Properties[BvDVocabulary.Organization.Website] = data.Website;
-        metadata.Properties[BvDVocabulary.Organization.Email] = data.Email;
-        metadata.Properties[BvDVocabulary.Organization.Building] = data.Building;
-        metadata.Properties[BvDVocabulary.Organization.Street] = data.Street;
-        metadata.Properties[BvDVocabulary.Organization.StreetNumber] = data.StreetNumber;
-        metadata.Properties[BvDVocabulary.Organization.StreetNumberExtension] = data.StreetNumberExtension;
-        metadata.Properties[BvDVocabulary.Organization.StreetAndStreetNumber] = data.StreetAndStreetNumber;
-        metadata.Properties[BvDVocabulary.Organization.StreetSupplement] = data.StreetSupplement;
-        metadata.Properties[BvDVocabulary.Organization.PoBox] = data.PoBox;
-        metadata.Properties[BvDVocabulary.Organization.MinorTown] = data.MinorTown;
-        metadata.Properties[BvDVocabulary.Organization.AddressLine1Additional] = data.AddressLine1Additional;
-        metadata.Properties[BvDVocabulary.Organization.AddressLine2Additional] = data.AddressLine2Additional;
-        metadata.Properties[BvDVocabulary.Organization.AddressLine3Additional] = data.AddressLine3Additional;
-        metadata.Properties[BvDVocabulary.Organization.AddressLine4Additional] = data.AddressLine4Additional;
-        metadata.Properties[BvDVocabulary.Organization.PostcodeAdditional] = data.PostcodeAdditional;
-        metadata.Properties[BvDVocabulary.Organization.CityAdditional] = data.CityAdditional;
-        metadata.Properties[BvDVocabulary.Organization.CityStandardizedAdditional] = data.CityStandardizedAdditional;
-        metadata.Properties[BvDVocabulary.Organization.CountryAdditional] = data.CountryAdditional;
-        metadata.Properties[BvDVocabulary.Organization.CountryIsoCodeAdditional] = data.CountryIsoCodeAdditional;
-        metadata.Properties[BvDVocabulary.Organization.LatitudeAdditional] = data.LatitudeAdditional;
-        metadata.Properties[BvDVocabulary.Organization.LongitudeAdditional] = data.LongitudeAdditional;
-        metadata.Properties[BvDVocabulary.Organization.CountryRegionAdditional] = data.CountryRegionAdditional;
-        metadata.Properties[BvDVocabulary.Organization.CountryRegionTypeAdditional] =
-            data.CountryRegionTypeAdditional;
-        metadata.Properties[BvDVocabulary.Organization.AddressTypeAdditional] = data.AddressTypeAdditional;
-        metadata.Properties[BvDVocabulary.Organization.PhoneNumberAdditional] = data.PhoneNumberAdditional;
-        metadata.Properties[BvDVocabulary.Organization.FaxNumberAdditional] = data.FaxNumberAdditional;
-        metadata.Properties[BvDVocabulary.Organization.BuildingAdditional] = data.BuildingAdditional;
-        metadata.Properties[BvDVocabulary.Organization.StreetAdditional] = data.StreetAdditional;
-        metadata.Properties[BvDVocabulary.Organization.StreetNumberAdditional] = data.StreetNumberAdditional;
-        metadata.Properties[BvDVocabulary.Organization.StreetNumberExtensionAdditional] =
-            data.StreetNumberExtensionAdditional;
-        metadata.Properties[BvDVocabulary.Organization.StreetAndStreetNumberAdditional] =
-            data.StreetAndStreetNumberAdditional;
-        metadata.Properties[BvDVocabulary.Organization.StreetSupplementAdditional] = data.StreetSupplementAdditional;
-        metadata.Properties[BvDVocabulary.Organization.PoBoxAdditional] = data.PoBoxAdditional;
-        metadata.Properties[BvDVocabulary.Organization.MinorTownAdditional] = data.MinorTownAdditional;
-        metadata.Properties[BvDVocabulary.Organization.TradeDescriptionEn] = data.TradeDescriptionEn;
-        metadata.Properties[BvDVocabulary.Organization.TradeDescriptionOriginal] = data.TradeDescriptionOriginal;
-        metadata.Properties[BvDVocabulary.Organization.TradeDescriptionLanguage] = data.TradeDescriptionLanguage;
-        metadata.Properties[BvDVocabulary.Organization.ProductsServices] = data.ProductsServices;
-        metadata.Properties[BvDVocabulary.Organization.BvdSectorCoreLabel] = data.BvdSectorCoreLabel;
-        metadata.Properties[BvDVocabulary.Organization.IndustryClassification] = data.IndustryClassification;
-        metadata.Properties[BvDVocabulary.Organization.IndustryPrimaryCode] = data.IndustryPrimaryCode;
-        metadata.Properties[BvDVocabulary.Organization.IndustryPrimaryLabel] = data.IndustryPrimaryLabel;
-        metadata.Properties[BvDVocabulary.Organization.IndustrySecondaryCode] = data.IndustrySecondaryCode;
-        metadata.Properties[BvDVocabulary.Organization.IndustrySecondaryLabel] = data.IndustrySecondaryLabel;
-        metadata.Properties[BvDVocabulary.Organization.Nace2MainSection] = data.Nace2MainSection;
-        metadata.Properties[BvDVocabulary.Organization.Nace2CoreCode] = data.Nace2CoreCode;
-        metadata.Properties[BvDVocabulary.Organization.Nace2CoreLabel] = data.Nace2CoreLabel;
-        metadata.Properties[BvDVocabulary.Organization.Nace2PrimaryCode] = data.Nace2PrimaryCode;
-        metadata.Properties[BvDVocabulary.Organization.Nace2PrimaryLabel] = data.Nace2PrimaryLabel;
-        metadata.Properties[BvDVocabulary.Organization.Nace2SecondaryCode] = data.Nace2SecondaryCode;
-        metadata.Properties[BvDVocabulary.Organization.Nace2SecondaryLabel] = data.Nace2SecondaryLabel;
-        metadata.Properties[BvDVocabulary.Organization.Naics2017CoreCode] = data.Naics2017CoreCode;
-        metadata.Properties[BvDVocabulary.Organization.Naics2017CoreLabel] = data.Naics2017CoreLabel;
-        metadata.Properties[BvDVocabulary.Organization.Naics2017PrimaryCode] = data.Naics2017PrimaryCode;
-        metadata.Properties[BvDVocabulary.Organization.Naics2017PrimaryLabel] = data.Naics2017PrimaryLabel;
-        metadata.Properties[BvDVocabulary.Organization.Naics2017SecondaryCode] = data.Naics2017SecondaryCode;
-        metadata.Properties[BvDVocabulary.Organization.Naics2017SecondaryLabel] = data.Naics2017SecondaryLabel;
-        metadata.Properties[BvDVocabulary.Organization.UssicCoreCode] = data.UssicCoreCode;
-        metadata.Properties[BvDVocabulary.Organization.UssicCoreLabel] = data.UssicCoreLabel;
-        metadata.Properties[BvDVocabulary.Organization.UssicPrimaryCode] = data.UssicPrimaryCode;
-        metadata.Properties[BvDVocabulary.Organization.UssicPrimaryLabel] = data.UssicPrimaryLabel;
-        metadata.Properties[BvDVocabulary.Organization.UssicSecondaryCode] = data.UssicSecondaryCode;
-        metadata.Properties[BvDVocabulary.Organization.UssicSecondaryLabel] = data.UssicSecondaryLabel;
-        metadata.Properties[BvDVocabulary.Organization.BvdIdNumber] = data.BvdIdNumber;
-        metadata.Properties[BvDVocabulary.Organization.BvdAccountNumber] = data.BvdAccountNumber;
-        metadata.Properties[BvDVocabulary.Organization.OrbisId] = data.Orbisid;
-        metadata.Properties[BvDVocabulary.Organization.NationalId] = data.NationalId;
-        metadata.Properties[BvDVocabulary.Organization.NationalIdLabel] = data.NationalIdLabel;
-        metadata.Properties[BvDVocabulary.Organization.NationalIdType] = data.NationalIdType;
-        metadata.Properties[BvDVocabulary.Organization.TradeRegisterNumber] = data.TradeRegisterNumber;
-        metadata.Properties[BvDVocabulary.Organization.VatNumber] = data.VatNumber;
-        metadata.Properties[BvDVocabulary.Organization.EuropeanVatNumber] = data.EuropeanVatNumber;
-        metadata.Properties[BvDVocabulary.Organization.Lei] = data.Lei;
-        metadata.Properties[BvDVocabulary.Organization.Giin] = data.Giin;
-        metadata.Properties[BvDVocabulary.Organization.StatisticalNumber] = data.StatisticalNumber;
-        metadata.Properties[BvDVocabulary.Organization.CompanyIdNumber] = data.CompanyIdNumber;
-        metadata.Properties[BvDVocabulary.Organization.InformationProviderId] = data.InformationProviderId;
-        metadata.Properties[BvDVocabulary.Organization.InformationProviderIdLabel] = data.InformationProviderIdLabel;
-        metadata.Properties[BvDVocabulary.Organization.Ticker] = data.Ticker;
-        metadata.Properties[BvDVocabulary.Organization.Isin] = data.Isin;
-        metadata.Properties[BvDVocabulary.Organization.LeiStatus] = data.LeiStatus;
-        metadata.Properties[BvDVocabulary.Organization.LeiFirstAssignmentDate] = data.LeiFirstAssignmentDate;
-        metadata.Properties[BvDVocabulary.Organization.LeiAnnualRenewalDate] = data.LeiAnnualRenewalDate;
-        metadata.Properties[BvDVocabulary.Organization.LeiManagingLocalOfficeUnitStr] =
-            data.LeiManagingLocalOfficeUnitStr;
-        metadata.Properties[BvDVocabulary.Organization.ReleaseDate] = data.ReleaseDate;
-        metadata.Properties[BvDVocabulary.Organization.InformationProvider] = data.InformationProvider;
-        metadata.Properties[BvDVocabulary.Organization.Name] = data.Name;
-        metadata.Properties[BvDVocabulary.Organization.PreviousName] = data.PreviousName;
-        metadata.Properties[BvDVocabulary.Organization.PreviousNameDate] = data.PreviousNameDate;
-        metadata.Properties[BvDVocabulary.Organization.AkaName] = data.AkaName;
-        metadata.Properties[BvDVocabulary.Organization.Status] = data.Status;
-        metadata.Properties[BvDVocabulary.Organization.StatusDate] = data.StatusDate;
-        metadata.Properties[BvDVocabulary.Organization.StatusChangeDate] = data.StatusChangeDate;
-        metadata.Properties[BvDVocabulary.Organization.LocalStatus] = data.LocalStatus;
-        metadata.Properties[BvDVocabulary.Organization.LocalStatusDate] = data.LocalStatusDate;
-        metadata.Properties[BvDVocabulary.Organization.LocalStatusChangeDate] = data.LocalStatusChangeDate;
-        metadata.Properties[BvDVocabulary.Organization.StandardisedLegalForm] = data.StandardisedLegalForm;
-        metadata.Properties[BvDVocabulary.Organization.NationalLegalForm] = data.NationalLegalForm;
-        metadata.Properties[BvDVocabulary.Organization.IncorporationDate] = data.IncorporationDate;
-        metadata.Properties[BvDVocabulary.Organization.IncorporationState] = data.IncorporationState;
-        metadata.Properties[BvDVocabulary.Organization.EntityType] = data.EntityType;
-        metadata.Properties[BvDVocabulary.Organization.IcijDataPresenceIndicator] = data.IcijDataPresenceIndicator;
-        metadata.Properties[BvDVocabulary.Organization.ConsolidationCode] = data.ConsolidationCode;
-        metadata.Properties[BvDVocabulary.Organization.ClosingDateLastAnnualAccounts] =
-            data.ClosingDateLastAnnualAccounts;
-        metadata.Properties[BvDVocabulary.Organization.YearLastAccounts] = data.YearLastAccounts;
-        metadata.Properties[BvDVocabulary.Organization.LimitedFinancialIndicator] = data.LimitedFinancialIndicator;
-        metadata.Properties[BvDVocabulary.Organization.NoRecentFinancialIndicator] = data.NoRecentFinancialIndicator;
-        metadata.Properties[BvDVocabulary.Organization.NumberYears] = data.NumberYears;
+        var bvdOrganizationVocabulary = new BvDOrganizationVocabulary();
+        foreach (var kvp in data)
+        {
+            var camelCaseKey = kvp.Key.Replace("_", " ").ToLowerInvariant().ToCamelCase();
+            metadata.Properties[bvdOrganizationVocabulary.KeyPrefix + bvdOrganizationVocabulary.KeySeparator + camelCaseKey] = FirstIfSingleArray(kvp.Value).PrintIfAvailable();
+        }
     }
 
-    // Since this is a configurable external search provider, theses methods should never be called
+    private static object FirstIfSingleArray(object value)
+    {
+        var maxIteration = 10;
+        while (maxIteration-- > 0)
+        {
+            switch (value)
+            {
+                case null:
+                    return null;
+
+                case string str:
+                    return str;
+
+                // if value is a standard array with exactly one element
+                case Array { Length: 1 } array:
+                    return array.GetValue(0)?.ToString();
+
+                // if value is an enumerable (like a list) with exactly one element
+                case System.Collections.IEnumerable enumerable:
+                {
+                    var items = enumerable.Cast<object>().ToList();
+                    if (items.Count == 1)
+                    {
+                        value = items[0];
+                        continue;
+                    }
+
+                    break;
+                }
+            }
+
+            return value;
+        }
+
+        return value; // return whatever we have if max iteration reached
+    }
+
+    private static HashSet<string> GetValue(IExternalSearchRequest request, IDictionary<string, object> config, string keyName, VocabularyKey defaultKey)
+    {
+        HashSet<string> value;
+        if (config.TryGetValue(keyName, out var customVocabKey) && !string.IsNullOrWhiteSpace(customVocabKey?.ToString()))
+        {
+            value = request.QueryParameters.GetValue(customVocabKey.ToString(), []);
+        }
+        else
+        {
+            value = request.QueryParameters.GetValue(defaultKey, []);
+        }
+
+        return value;
+    }
+
+    // Since this is a configurable external search provider, these methods should never be called
     public override bool Accepts(EntityType entityType)
     {
         throw new NotSupportedException();
