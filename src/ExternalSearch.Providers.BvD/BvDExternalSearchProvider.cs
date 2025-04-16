@@ -95,6 +95,12 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
         IDictionary<string, object> config, IProvider provider)
     {
         var jobData = new BvDExternalSearchJobData(config);
+
+        if (string.IsNullOrEmpty(jobData.BvDId))
+        {
+            jobData.ValidateBvDId = false; // TODO The toggle is not set to false if hidden in UI
+        }
+
         return InternalExecuteSearch(context, query, jobData.ApiToken, jobData.SelectProperties, jobData);
     }
 
@@ -383,23 +389,29 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
 
             var filteredValues = bvdId.Where(v => !bvd(v)).ToArray();
 
-            if (!filteredValues.Any())
+            if (bvdId.Count > 0 && !filteredValues.Any())
             {
                 context.Log.LogWarning("Filter removed all BvD numbers, skipping processing. Original '{Original}'",
                     string.Join(",", bvdId));
             }
             else
             {
-                foreach (var value in filteredValues)
+                if (filteredValues.Any())
                 {
-                    request.CustomQueryInput = bvdId.ElementAt(0);
+                    foreach (var value in filteredValues)
+                    {
+                        context.Log.LogInformation(
+                            "External search query produced, ExternalSearchQueryParameter: '{Identifier}' EntityType: '{EntityCode}' Value: '{SanitizedValue}'",
+                            ExternalSearchQueryParameter.Identifier, entityType.Code, value);
 
-                    context.Log.LogInformation(
-                        "External search query produced, ExternalSearchQueryParameter: '{Identifier}' EntityType: '{EntityCode}' Value: '{SanitizedValue}'",
-                        ExternalSearchQueryParameter.Identifier, entityType.Code, value);
+                        request.CustomQueryInput = bvdId.ElementAt(0);
+                        conditions.Add("BvDId", value);
 
-                    conditions.Add("BvDId", value);
-
+                        yield return new ExternalSearchQuery(this, entityType, conditions);
+                    }
+                }
+                else
+                {
                     yield return new ExternalSearchQuery(this, entityType, conditions);
                 }
             }
@@ -439,34 +451,31 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
 
             var client = new RestClient("https://api.bvdinfo.com/v1/orbis/Companies");
 
-            // If validate bvd id toggle is enabled, get the list of possible match companies for validation,
-            // else use the original bvd id provided
-            if (jobData.ValidateBvDId)
+            // If bvd id is not null and both validate bvd id and auto match toggles are disabled.
+            if (!string.IsNullOrEmpty(bvd) && !jobData.ValidateBvDId && !jobData.MatchFirstAndHighest)
             {
-                var matchCompanies = GetMatchCompanies(context, query, jobData, client);
+                var searchCompany = SearchCompanies(context, query, apiToken, selectProperties, client, bvd);
+                searchCompany.Data.First().Add("BvdIdNeedsAttention", false);
 
-                // If bvd id not exist in the list of possible match companies
-                if (matchCompanies is not { Count: > 0 } || !matchCompanies.Exists(x => x.BvDId == bvd)) 
+                yield return new ExternalSearchQueryResult<BvDResponse>(query, searchCompany);
+                yield break;
+            }
+
+            var matchCompanies = GetMatchCompanies(context, query, jobData, client);
+
+            if (string.IsNullOrEmpty(bvd))
+            {
+                if (!matchCompanies.Any())
                 {
-                    if (!matchCompanies.Any())
-                    {
-                        yield break;
-                    }
+                    context.Log.LogInformation($"No match found when auto-match enabled. Skipping search execution - {Name}.");
+                    yield break;
+                }
 
-                    // If auto match first and highest confidence score match toggle is enabled, search using the bvd id of first match
-                    if (jobData.MatchFirstAndHighest)
+                if (!jobData.MatchFirstAndHighest)
+                {
+                    if (jobData.ValidateBvDId)
                     {
-                        var firstMatchCompany = matchCompanies.FirstOrDefault();
-
-                        var searchCompany = SearchCompanies(context, query, apiToken, selectProperties, client,
-                            firstMatchCompany?.BvDId);
-                        searchCompany.Data.First().Add("BvdIdNeedsAttention", false);
-
-                        yield return new ExternalSearchQueryResult<BvDResponse>(query, searchCompany);
-                    }
-                    else 
-                    {
-                        // else return list of possible match json
+                        // Return list of possible match json
                         var rawMatch = new BvDResponse
                         {
                             SearchSummary = new SearchSummary
@@ -492,24 +501,92 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
 
                         yield return new ExternalSearchQueryResult<BvDResponse>(query, rawMatch);
                     }
-                }
-                else
-                {
-                    // If bvd id exist in the list of possible match companies
-                    var matchCompany = matchCompanies.FirstOrDefault(x => x.BvDId == bvd);
-                    var searchCompany = SearchCompanies(context, query, apiToken, selectProperties, client,
-                        matchCompany?.BvDId);
-                    searchCompany.Data.First().Add("BvdIdNeedsAttention", false);
+                    else
+                    {
+                        context.Log.LogInformation($"No bvd id provided with auto-match disabled. Skipping search execution - {Name}.");
+                    }
 
-                    yield return new ExternalSearchQueryResult<BvDResponse>(query, searchCompany);
+                    yield break;
                 }
+
+                // If there is no bvd id and auto match toggle is enabled, search using the bvd id of first match
+                var searchCompany = SearchCompanies(context, query, apiToken, selectProperties, client, matchCompanies.FirstOrDefault()?.BvDId);
+                searchCompany.Data.First().Add("BvdIdNeedsAttention", false);
+                searchCompany.Data.First().Add("Hint", matchCompanies.FirstOrDefault()?.Hint);
+                searchCompany.Data.First().Add("Score", matchCompanies.FirstOrDefault()?.Score);
+
+                yield return new ExternalSearchQueryResult<BvDResponse>(query, searchCompany);
+                yield break;
             }
-            else
+
+            // Enrich if bvd id (not empty) is provided and validate bvd id toggle is disabled
+            if (!jobData.ValidateBvDId)
             {
                 var searchCompany = SearchCompanies(context, query, apiToken, selectProperties, client, bvd);
                 searchCompany.Data.First().Add("BvdIdNeedsAttention", false);
 
                 yield return new ExternalSearchQueryResult<BvDResponse>(query, searchCompany);
+                yield break;
+            }
+
+            // Validation starts
+            if (!matchCompanies.Any())
+            {
+                context.Log.LogInformation($"No match found for validation. Skipping search execution - {Name}.");
+                yield break;
+            }
+
+            // If bvd id exist in the list of possible match companies (PASS)
+            if (matchCompanies.Exists(x => x.BvDId == bvd))
+            {
+                var searchCompany = SearchCompanies(context, query, apiToken, selectProperties, client,
+                    bvd);
+                searchCompany.Data.First().Add("BvdIdNeedsAttention", false);
+                searchCompany.Data.First().Add("Hint", matchCompanies.FirstOrDefault()?.Hint);
+                searchCompany.Data.First().Add("Score", matchCompanies.FirstOrDefault()?.Score);
+
+                yield return new ExternalSearchQueryResult<BvDResponse>(query, searchCompany);
+                yield break;
+            }
+
+            // If bvd id not exist in the list of possible match companies (FAILED)
+            // If auto match toggle is enabled, search using the bvd id of first match
+            if (jobData.MatchFirstAndHighest)
+            {
+                var searchCompany = SearchCompanies(context, query, apiToken, selectProperties, client, matchCompanies.FirstOrDefault()?.BvDId);
+                searchCompany.Data.First().Add("BvdIdNeedsAttention", false);
+                searchCompany.Data.First().Add("Hint", matchCompanies.FirstOrDefault()?.Hint);
+                searchCompany.Data.First().Add("Score", matchCompanies.FirstOrDefault()?.Score);
+
+                yield return new ExternalSearchQueryResult<BvDResponse>(query, searchCompany);
+            }
+            else
+            {
+                // else return list of possible match json
+                var rawMatch = new BvDResponse
+                {
+                    SearchSummary = new SearchSummary
+                    {
+                        TotalRecordsFound = 0,
+                        Offset = 0,
+                        RecordsReturned = 0,
+                        DatabaseInfo = null,
+                        Sort = null
+                    },
+                    Data =
+                    [
+                        new Dictionary<string, object>
+                    {
+                        {"RawMatches", JsonConvert.SerializeObject(matchCompanies, new JsonSerializerSettings
+                        {
+                            NullValueHandling = NullValueHandling.Ignore
+                        })},
+                        {"BvdIdNeedsAttention", true}
+                    }
+                    ]
+                };
+
+                yield return new ExternalSearchQueryResult<BvDResponse>(query, rawMatch);
             }
         }
     }
