@@ -115,7 +115,7 @@ public static class Constants
         {
             DisplayName = "Enrichment properties",
             Type = "input",
-            IsRequired = false,
+            IsRequired = true,
             Name = KeyName.SelectProperties,
             Help =
                 "The properties that should be returned to CluedIn as a result of enrichment (e.g., NAME,CITY,ADDRESS_LINE1)."
