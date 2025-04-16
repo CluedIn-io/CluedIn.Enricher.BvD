@@ -161,6 +161,7 @@ public class BvDOrganizationVocabulary : SimpleVocabulary
             NumberOfEmployee = group.Add(new VocabularyKey("empl"));
             OperatingRevenue = group.Add(new VocabularyKey("opre"));
             Score = group.Add(new VocabularyKey("score"));
+            Hint = group.Add(new VocabularyKey("hint"));
         });
     }
 
@@ -298,4 +299,5 @@ public class BvDOrganizationVocabulary : SimpleVocabulary
     public VocabularyKey NumberOfEmployee { get; protected set; }
     public VocabularyKey OperatingRevenue { get; protected set; }
     public VocabularyKey Score { get; protected set; }
+    public VocabularyKey Hint { get; protected set; }
 }
