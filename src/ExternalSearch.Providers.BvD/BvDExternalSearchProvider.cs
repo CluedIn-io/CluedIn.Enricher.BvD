@@ -512,6 +512,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
                 // If there is no bvd id and auto match toggle is enabled, search using the bvd id of first match
                 var searchCompany = SearchCompanies(context, query, apiToken, selectProperties, client, matchCompanies.FirstOrDefault()?.BvDId);
                 searchCompany.Data.First().Add("BvdIdNeedsAttention", false);
+                searchCompany.Data.First().Add("Hint", matchCompanies.FirstOrDefault()?.Hint);
                 searchCompany.Data.First().Add("Score", matchCompanies.FirstOrDefault()?.Score);
 
                 yield return new ExternalSearchQueryResult<BvDResponse>(query, searchCompany);
@@ -541,6 +542,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
                 var searchCompany = SearchCompanies(context, query, apiToken, selectProperties, client,
                     bvd);
                 searchCompany.Data.First().Add("BvdIdNeedsAttention", false);
+                searchCompany.Data.First().Add("Hint", matchCompanies.FirstOrDefault()?.Hint);
                 searchCompany.Data.First().Add("Score", matchCompanies.FirstOrDefault()?.Score);
 
                 yield return new ExternalSearchQueryResult<BvDResponse>(query, searchCompany);
@@ -553,6 +555,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
             {
                 var searchCompany = SearchCompanies(context, query, apiToken, selectProperties, client, matchCompanies.FirstOrDefault()?.BvDId);
                 searchCompany.Data.First().Add("BvdIdNeedsAttention", false);
+                searchCompany.Data.First().Add("Hint", matchCompanies.FirstOrDefault()?.Hint);
                 searchCompany.Data.First().Add("Score", matchCompanies.FirstOrDefault()?.Score);
 
                 yield return new ExternalSearchQueryResult<BvDResponse>(query, searchCompany);
