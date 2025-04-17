@@ -86,21 +86,21 @@ public static class Constants
         //},
         new()
         {
-            DisplayName = "Enrichment properties",
-            Type = "input",
-            IsRequired = false,
-            Name = KeyName.SelectProperties,
-            Help =
-                "The properties that should be returned to CluedIn as a result of enrichment (e.g., NAME,CITY,ADDRESS_LINE1)."
-        },
-        new()
-        {
             DisplayName = "Validate BvD ID",
             Type = "checkbox",
             IsRequired = false,
             Name = KeyName.ValidateBvDId,
             Help =
-                "Toggle to control whether the BvD ID needs to be validated before enrichment."
+                "Toggle to control whether the BvD ID needs to be validated before enrichment.",
+            DisplayDependencies =
+            [
+                new ControlDisplayDependency
+                {
+                    Name = KeyName.BvDId,
+                    Operator = ControlDependencyOperator.Exists,
+                    UnfulfilledAction = ControlDependencyUnfulfilledAction.Hidden,
+                }
+            ],
         },
         new()
         {
@@ -109,16 +109,16 @@ public static class Constants
             IsRequired = false,
             Name = KeyName.MatchFirstAndHighest,
             Help =
-                "Toggle to control whether the enrichment should be based on the first and highest score match if BvD ID validation failed.",
-            DisplayDependencies =
-            [
-                new ControlDisplayDependency
-                {
-                    Name = KeyName.ValidateBvDId,
-                    Operator = ControlDependencyOperator.Exists,
-                    UnfulfilledAction = ControlDependencyUnfulfilledAction.Hidden,
-                }
-            ],
+                "Toggle to control whether the enrichment should be based on the first and highest score match if BvD ID validation failed or BvD ID is empty.",
+        },
+        new()
+        {
+            DisplayName = "Enrichment properties",
+            Type = "input",
+            IsRequired = true,
+            Name = KeyName.SelectProperties,
+            Help =
+                "The properties that should be returned to CluedIn as a result of enrichment (e.g., NAME,CITY,ADDRESS_LINE1)."
         },
         new()
         {
@@ -128,15 +128,6 @@ public static class Constants
             Name = KeyName.ScoreLimit,
             Help =
                 "The score limit required for matches to be considered in the validation process. (e.g., if you enter 0.5, only matches with scores more than 0.5 will be used for validation).",
-            DisplayDependencies =
-            [
-                new ControlDisplayDependency
-                {
-                    Name = KeyName.ValidateBvDId,
-                    Operator = ControlDependencyOperator.Exists,
-                    UnfulfilledAction = ControlDependencyUnfulfilledAction.Hidden,
-                }
-            ],
         },
         new()
         {
@@ -146,15 +137,6 @@ public static class Constants
             Name = KeyName.Name,
             Help =
                 "The vocabulary key that contains the names of companies you want to enrich (e.g., organization.name).",
-            DisplayDependencies =
-            [
-                new ControlDisplayDependency
-                {
-                    Name = KeyName.ValidateBvDId,
-                    Operator = ControlDependencyOperator.Exists,
-                    UnfulfilledAction = ControlDependencyUnfulfilledAction.Hidden,
-                }
-            ],
         },
         new()
         {
@@ -164,15 +146,6 @@ public static class Constants
             Name = KeyName.Country,
             Help =
                 "The vocabulary key that contains the countries of companies you want to enrich (e.g., organization.address.country).",
-            DisplayDependencies =
-            [
-                new ControlDisplayDependency
-                {
-                    Name = KeyName.ValidateBvDId,
-                    Operator = ControlDependencyOperator.Exists,
-                    UnfulfilledAction = ControlDependencyUnfulfilledAction.Hidden,
-                }
-            ],
         },
         new()
         {
@@ -182,15 +155,6 @@ public static class Constants
             Name = KeyName.Address,
             Help =
                 "The vocabulary key that contains the addresses of companies you want to enrich (e.g., organization.address).",
-            DisplayDependencies =
-            [
-                new ControlDisplayDependency
-                {
-                    Name = KeyName.ValidateBvDId,
-                    Operator = ControlDependencyOperator.Exists,
-                    UnfulfilledAction = ControlDependencyUnfulfilledAction.Hidden,
-                }
-            ],
         },
         new()
         {
@@ -200,15 +164,6 @@ public static class Constants
             Name = KeyName.City,
             Help =
                 "The vocabulary key that contains the cities of companies you want to enrich (e.g., organization.address.city).",
-            DisplayDependencies =
-            [
-                new ControlDisplayDependency
-                {
-                    Name = KeyName.ValidateBvDId,
-                    Operator = ControlDependencyOperator.Exists,
-                    UnfulfilledAction = ControlDependencyUnfulfilledAction.Hidden,
-                }
-            ],
         },
         new()
         {
@@ -218,15 +173,6 @@ public static class Constants
             Name = KeyName.PostCode,
             Help =
                 "The vocabulary key that contains the post codes of companies you want to enrich (e.g., organization.address.postCode).",
-            DisplayDependencies =
-            [
-                new ControlDisplayDependency
-                {
-                    Name = KeyName.ValidateBvDId,
-                    Operator = ControlDependencyOperator.Exists,
-                    UnfulfilledAction = ControlDependencyUnfulfilledAction.Hidden,
-                }
-            ],
         },
         new()
         {
@@ -236,15 +182,6 @@ public static class Constants
             Name = KeyName.State,
             Help =
                 "The vocabulary key that contains the states of companies you want to enrich (e.g., organization.address.state).",
-            DisplayDependencies =
-            [
-                new ControlDisplayDependency
-                {
-                    Name = KeyName.ValidateBvDId,
-                    Operator = ControlDependencyOperator.Exists,
-                    UnfulfilledAction = ControlDependencyUnfulfilledAction.Hidden,
-                }
-            ],
         },
         new()
         {
@@ -254,15 +191,6 @@ public static class Constants
             Name = KeyName.Website,
             Help =
                 "The vocabulary key that contains the websites of companies you want to enrich (e.g., organization.website).",
-            DisplayDependencies =
-            [
-                new ControlDisplayDependency
-                {
-                    Name = KeyName.ValidateBvDId,
-                    Operator = ControlDependencyOperator.Exists,
-                    UnfulfilledAction = ControlDependencyUnfulfilledAction.Hidden,
-                }
-            ],
         },
         new()
         {
@@ -272,15 +200,6 @@ public static class Constants
             Name = KeyName.Email,
             Help =
                 "The vocabulary key that contains the emails of companies you want to enrich (e.g., organization.contact.email).",
-            DisplayDependencies =
-            [
-                new ControlDisplayDependency
-                {
-                    Name = KeyName.ValidateBvDId,
-                    Operator = ControlDependencyOperator.Exists,
-                    UnfulfilledAction = ControlDependencyUnfulfilledAction.Hidden,
-                }
-            ],
         },
         new()
         {
@@ -290,15 +209,6 @@ public static class Constants
             Name = KeyName.Phone,
             Help =
                 "The vocabulary key that contains the phone numbers of companies you want to enrich (e.g., organization.phoneNumber).",
-            DisplayDependencies =
-            [
-                new ControlDisplayDependency
-                {
-                    Name = KeyName.ValidateBvDId,
-                    Operator = ControlDependencyOperator.Exists,
-                    UnfulfilledAction = ControlDependencyUnfulfilledAction.Hidden,
-                }
-            ],
         },
         new()
         {
@@ -308,15 +218,6 @@ public static class Constants
             Name = KeyName.Fax,
             Help =
                 "The vocabulary key that contains the fax numbers of companies you want to enrich (e.g., organization.fax).",
-            DisplayDependencies =
-            [
-                new ControlDisplayDependency
-                {
-                    Name = KeyName.ValidateBvDId,
-                    Operator = ControlDependencyOperator.Exists,
-                    UnfulfilledAction = ControlDependencyUnfulfilledAction.Hidden,
-                }
-            ],
         },
         new()
         {
@@ -326,15 +227,6 @@ public static class Constants
             Name = KeyName.NationalId,
             Help =
                 "The vocabulary key that contains the national IDs of companies you want to enrich (e.g., organization.nationalId).",
-            DisplayDependencies =
-            [
-                new ControlDisplayDependency
-                {
-                    Name = KeyName.ValidateBvDId,
-                    Operator = ControlDependencyOperator.Exists,
-                    UnfulfilledAction = ControlDependencyUnfulfilledAction.Hidden,
-                }
-            ],
         },
         new()
         {
@@ -344,15 +236,6 @@ public static class Constants
             Name = KeyName.Ticker,
             Help =
                 "The vocabulary key that contains the ticker symbols of companies you want to enrich (e.g., organization.ticker).",
-            DisplayDependencies =
-            [
-                new ControlDisplayDependency
-                {
-                    Name = KeyName.ValidateBvDId,
-                    Operator = ControlDependencyOperator.Exists,
-                    UnfulfilledAction = ControlDependencyUnfulfilledAction.Hidden,
-                }
-            ],
         },
         new()
         {
@@ -362,15 +245,6 @@ public static class Constants
             Name = KeyName.Isin,
             Help =
                 "The vocabulary key that contains the ISIN codes of companies you want to enrich (e.g., organization.isin).",
-            DisplayDependencies =
-            [
-                new ControlDisplayDependency
-                {
-                    Name = KeyName.ValidateBvDId,
-                    Operator = ControlDependencyOperator.Exists,
-                    UnfulfilledAction = ControlDependencyUnfulfilledAction.Hidden,
-                }
-            ],
         },
     };
 
