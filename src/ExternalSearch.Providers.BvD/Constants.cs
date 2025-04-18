@@ -20,7 +20,7 @@ public static class Constants
                                               "type": "list-item",
                                               "children": [
                                                 {
-                                                  "text": "Add the entity type to specify the golden records you want to enrich. Only golden records belonging to that entity type will be enriched."
+                                                  "text": "Add the business domain to specify the golden records you want to enrich. Only golden records belonging to that business domain will be enriched."
                                                 }
                                               ]
                                             },
@@ -259,18 +259,17 @@ public static class Constants
                 IsRequired = true,
                 Name = KeyName.ApiToken,
                 Help = "The key to authenticate access to the BvD API.",
-                // TODO Reapply validation in 4.5.0 onwards
-                //ValidationRules =
-                //    [new() { { "regex", "\\s" }, { "message", "Spaces are not allowed" } }]
+                ValidationRules =
+                    [new() { { "regex", "\\s" }, { "message", "Spaces are not allowed" } }]
             },
             new()
             {
-                DisplayName = "Accepted Entity Type",
+                DisplayName = "Accepted Business Domain",
                 Type = "entityTypeSelector",
                 IsRequired = true,
                 Name = KeyName.AcceptedEntityType,
                 Help =
-                    "The entity type that defines the golden records you want to enrich (e.g., /Organization)."
+                    "The business domain that defines the golden records you want to enrich (e.g., /Organization)."
             },
         }.Concat(Properties)
     };
