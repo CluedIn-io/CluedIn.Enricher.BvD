@@ -3,6 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Text.RegularExpressions;
+using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
+using RestSharp;
 using CluedIn.Core;
 using CluedIn.Core.Connectors;
 using CluedIn.Core.Data;
@@ -18,9 +21,7 @@ using CluedIn.ExternalSearch.Providers.BvD.Helper;
 using CluedIn.ExternalSearch.Providers.BvD.Models;
 using CluedIn.ExternalSearch.Providers.BvD.Vocabularies;
 using CluedIn.Integration.PrivateServices.Vocabularies;
-using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
-using RestSharp;
+
 using EntityType = CluedIn.Core.Data.EntityType;
 // ReSharper disable VirtualMemberCallInConstructor
 
@@ -36,7 +37,33 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
      **********************************************************************************************************/
 
     private static readonly EntityType[] _defaultAcceptedEntityTypes = [EntityType.Organization];
-
+    private static readonly List<string> _selectMatchFields =
+    [
+        "Match.Hint",
+        "Match.Score",
+        "Match.Name",
+        "Match.Name_Local",
+        "Match.MatchedName",
+        "Match.MatchedName_Type",
+        "Match.Address",
+        "Match.Postcode",
+        "Match.City",
+        "Match.Country",
+        "Match.Address_Type",
+        "Match.PhoneOrFax",
+        "Match.EmailOrWebsite",
+        "Match.National_Id",
+        "Match.NationalIdLabel",
+        "Match.State",
+        "Match.Region",
+        "Match.LegalForm",
+        "Match.ConsolidationCode",
+        "Match.Status",
+        "Match.Ticker",
+        "Match.CustomRule",
+        "Match.Isin",
+        "Match.BvDId"
+    ];
     /**********************************************************************************************************
      * CONSTRUCTORS
      **********************************************************************************************************/
@@ -72,7 +99,13 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
         IDictionary<string, object> config, IProvider provider)
     {
         var jobData = new BvDExternalSearchJobData(config);
-        return InternalExecuteSearch(context, query, jobData.ApiToken, jobData.SelectProperties);
+
+        if (string.IsNullOrEmpty(jobData.BvDId))
+        {
+            jobData.ValidateBvDId = false; // TODO The toggle is not set to false if hidden in UI
+        }
+
+        return InternalExecuteSearch(context, query, jobData.ApiToken, jobData.SelectProperties, jobData);
     }
 
     public IEnumerable<Clue> BuildClues(ExecutionContext context, IExternalSearchQuery query,
@@ -187,7 +220,37 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
     {
         IDictionary<string, object> configDict = config.ToDictionary(entry => entry.Key, entry => entry.Value);
         var jobData = new BvDExternalSearchJobData(configDict);
-        var client = new RestClient("https://api.bvdinfo.com/v1/orbis/Companies/data");
+        var client = new RestClient("https://api.bvdinfo.com/v1/orbis/Companies");
+        var matchCondition = new MatchCondition
+        {
+            Criteria = new Dictionary<string, object>
+            {
+                { "Name", "Google" },
+                { "Country", "US" }
+            },
+            Options = new Dictionary<string, object>
+            {
+                { "ScoreLimit", 0.85 },
+            }
+        };
+
+        var bvdMatchesRequestBody = new BvDMatchesRequest
+        {
+            Match = matchCondition,
+            Select = _selectMatchFields
+        };
+
+        var matchRequest = new RestRequest("match", Method.POST);
+        matchRequest.AddHeader("Content-Type", "application/json");
+        matchRequest.AddHeader("ApiToken", jobData.ApiToken);
+        matchRequest.AddJsonBody(bvdMatchesRequestBody);
+
+        var matchResponse = client.ExecuteAsync<List<Matches>>(matchRequest).Result;
+
+        if (!matchResponse.IsSuccessful)
+        {
+            return ConstructVerifyConnectionResponse(matchResponse);
+        }
 
         var bvdRequest = new BvDRequest
         {
@@ -200,7 +263,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
                 : null
         };
 
-        var request = new RestRequest(string.Empty, Method.POST);
+        var request = new RestRequest("data", Method.POST);
         request.AddHeader("Content-Type", "application/json");
         request.AddHeader("ApiToken", jobData.ApiToken);
         request.AddJsonBody(bvdRequest);
@@ -296,25 +359,64 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
             //    leiId = request.QueryParameters.GetValue<string, HashSet<string>>(config.LeiId, []);
             //}
 
+            var configMap = config.ToDictionary();
+            var name = GetValue(request, configMap, Constants.KeyName.Name, Core.Data.Vocabularies.Vocabularies.CluedInOrganization.OrganizationName);
+            var country = GetValue(request, configMap, Constants.KeyName.Country, Core.Data.Vocabularies.Vocabularies.CluedInOrganization.AddressCountryCode);
+            var address = GetValue(request, configMap, Constants.KeyName.Address, Core.Data.Vocabularies.Vocabularies.CluedInOrganization.Address);
+            var city = GetValue(request, configMap, Constants.KeyName.City, Core.Data.Vocabularies.Vocabularies.CluedInOrganization.AddressCity);
+            var postCode = GetValue(request, configMap, Constants.KeyName.PostCode, Core.Data.Vocabularies.Vocabularies.CluedInOrganization.AddressZipCode);
+            var state = GetValue(request, configMap, Constants.KeyName.State, Core.Data.Vocabularies.Vocabularies.CluedInOrganization.AddressState);
+            var website = GetValue(request, configMap, Constants.KeyName.Website, Core.Data.Vocabularies.Vocabularies.CluedInOrganization.Website);
+            var email = GetValue(request, configMap, Constants.KeyName.Email, Core.Data.Vocabularies.Vocabularies.CluedInOrganization.ContactEmail);
+            var phone = GetValue(request, configMap, Constants.KeyName.Phone, Core.Data.Vocabularies.Vocabularies.CluedInOrganization.PhoneNumber);
+            var fax = GetValue(request, configMap, Constants.KeyName.Fax, Core.Data.Vocabularies.Vocabularies.CluedInOrganization.Fax);
+            var nationalId = request.QueryParameters.GetValue(config.NationalId, []);
+            var ticker = request.QueryParameters.GetValue(config.Ticker, []);
+            var isin = request.QueryParameters.GetValue(config.Isin, []);
+
+            var conditions = new Dictionary<string, string>
+            {
+                {nameof(Constants.KeyName.Name),       name.FirstOrDefault() ?? string.Empty},
+                {nameof(Constants.KeyName.Country),    country.FirstOrDefault() ?? string.Empty},
+                {nameof(Constants.KeyName.Address),    address.FirstOrDefault() ?? string.Empty},
+                {nameof(Constants.KeyName.City),       city.FirstOrDefault() ?? string.Empty},
+                {nameof(Constants.KeyName.PostCode),   postCode.FirstOrDefault() ?? string.Empty},
+                {nameof(Constants.KeyName.State),      state.FirstOrDefault() ?? string.Empty},
+                {nameof(Constants.KeyName.Website),    website.FirstOrDefault() ?? string.Empty},
+                {nameof(Constants.KeyName.Email),      email.FirstOrDefault() ?? string.Empty},
+                {nameof(Constants.KeyName.Phone),      phone.FirstOrDefault() ?? string.Empty},
+                {nameof(Constants.KeyName.Fax),        fax.FirstOrDefault() ?? string.Empty},
+                {nameof(Constants.KeyName.NationalId), nationalId.FirstOrDefault() ?? string.Empty},
+                {nameof(Constants.KeyName.Ticker),     ticker.FirstOrDefault() ?? string.Empty},
+                {nameof(Constants.KeyName.Isin),       isin.FirstOrDefault() ?? string.Empty}
+            };
+
             var filteredValues = bvdId.Where(v => !bvd(v)).ToArray();
 
-            if (!filteredValues.Any())
+            if (bvdId.Count > 0 && !filteredValues.Any())
             {
                 context.Log.LogWarning("Filter removed all BvD numbers, skipping processing. Original '{Original}'",
                     string.Join(",", bvdId));
             }
             else
             {
-                foreach (var value in filteredValues)
+                if (filteredValues.Any())
                 {
-                    request.CustomQueryInput = bvdId.ElementAt(0);
+                    foreach (var value in filteredValues)
+                    {
+                        context.Log.LogInformation(
+                            "External search query produced, ExternalSearchQueryParameter: '{Identifier}' EntityType: '{EntityCode}' Value: '{SanitizedValue}'",
+                            ExternalSearchQueryParameter.Identifier, entityType.Code, value);
 
-                    context.Log.LogInformation(
-                        "External search query produced, ExternalSearchQueryParameter: '{Identifier}' EntityType: '{EntityCode}' Value: '{SanitizedValue}'",
-                        ExternalSearchQueryParameter.Identifier, entityType.Code, value);
+                        request.CustomQueryInput = bvdId.ElementAt(0);
+                        conditions.Add("BvDId", value);
 
-                    yield return new ExternalSearchQuery(this, entityType, ExternalSearchQueryParameter.Identifier,
-                        value);
+                        yield return new ExternalSearchQuery(this, entityType, conditions);
+                    }
+                }
+                else
+                {
+                    yield return new ExternalSearchQuery(this, entityType, conditions);
                 }
             }
 
@@ -323,7 +425,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
     }
 
     private IEnumerable<IExternalSearchQueryResult> InternalExecuteSearch(ExecutionContext context,
-        IExternalSearchQuery query, string apiToken, string selectProperties)
+        IExternalSearchQuery query, string apiToken, string selectProperties, BvDExternalSearchJobData jobData)
     {
         if (string.IsNullOrEmpty(apiToken))
         {
@@ -345,98 +447,150 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
             context.Log.LogTrace("Starting external search for Id: '{Id}' QueryKey: '{QueryKey}'", query.Id,
                 query.QueryKey);
 
-            var bvd = query.QueryParameters[ExternalSearchQueryParameter.Identifier].FirstOrDefault();
+            var bvd = string.Empty;
+            if (query.QueryParameters.TryGetValue("BvDId", out var bvdId))
+            {
+                bvd = bvdId.First();
+            }
+
+            var client = new RestClient("https://api.bvdinfo.com/v1/orbis/Companies");
+
+            // If bvd id is not null and both validate bvd id and auto match toggles are disabled.
+            if (!string.IsNullOrEmpty(bvd) && !jobData.ValidateBvDId && !jobData.MatchFirstAndHighest)
+            {
+                var searchCompany = SearchCompanies(context, query, apiToken, selectProperties, client, bvd);
+                searchCompany.Data.First().Add("BvdIdNeedsAttention", false);
+
+                yield return new ExternalSearchQueryResult<BvDResponse>(query, searchCompany);
+                yield break;
+            }
+
+            var matchCompanies = GetMatchCompanies(context, query, jobData, client);
 
             if (string.IsNullOrEmpty(bvd))
             {
-                context.Log.LogTrace("No parameter for '{Identifier}' in query, skipping execute search",
-                    ExternalSearchQueryParameter.Identifier);
-            }
-            else
-            {
-                bvd = WebUtility.UrlEncode(bvd);
-                var client = new RestClient("https://api.bvdinfo.com/v1/orbis/Companies/data");
-
-                var bvdRequest = new BvDRequest
+                if (!matchCompanies.Any())
                 {
-                    Where =
-                    [
-                        new Dictionary<string, string> { { "BvDID", bvd } }
-                    ],
-                    Select = !string.IsNullOrWhiteSpace(selectProperties)
-                        ? selectProperties.Split(',').Select(s => s.Trim()).ToList()
-                        : null
-                };
+                    context.Log.LogInformation($"No match found when auto-match enabled. Skipping search execution - {Name}.");
+                    yield break;
+                }
 
-                var request = new RestRequest(string.Empty, Method.POST);
-                request.AddHeader("Content-Type", "application/json");
-                request.AddHeader("ApiToken", apiToken);
-                request.AddJsonBody(bvdRequest);
-                var response = client.ExecuteAsync<BvDResponse>(request).Result;
-
-                if (response.StatusCode == HttpStatusCode.OK)
+                if (!jobData.MatchFirstAndHighest)
                 {
-                    if (response.Data != null && response.Data.SearchSummary.TotalRecordsFound > 0)
+                    if (jobData.ValidateBvDId)
                     {
-                        var data = response.Data?.Data?.FirstOrDefault();
-                        var name = data?.TryGetValue("NAME", out var value) is true ? value?.ToString() : string.Empty;
-                        var orbisId = data?.TryGetValue("ORBISID", out var value1) is true ? value1?.ToString() : string.Empty;
+                        // Return list of possible match json
+                        var rawMatch = new BvDResponse
+                        {
+                            SearchSummary = new SearchSummary
+                            {
+                                TotalRecordsFound = 0,
+                                Offset = 0,
+                                RecordsReturned = 0,
+                                DatabaseInfo = null,
+                                Sort = null
+                            },
+                            Data =
+                            [
+                                new Dictionary<string, object>
+                                {
+                                    {"RawMatches", JsonConvert.SerializeObject(matchCompanies, new JsonSerializerSettings
+                                    {
+                                        NullValueHandling = NullValueHandling.Ignore
+                                    })},
+                                    {"BvdIdNeedsAttention", true}
+                                }
+                            ]
+                        };
 
-                        var diagnostic =
-                            $"External search for Id: '{query.Id}' QueryKey: '{query.QueryKey}' produced results, CompanyName: '{name}'  BvDNumber: '{orbisId}'";
-
-                        context.Log.LogInformation(diagnostic);
-
-                        yield return new ExternalSearchQueryResult<BvDResponse>(query, response.Data);
+                        yield return new ExternalSearchQueryResult<BvDResponse>(query, rawMatch);
                     }
                     else
                     {
-                        var diagnostic =
-                            $"Failed external search for Id: '{query.Id}' QueryKey: '{query.QueryKey}' - StatusCode: '{response.StatusCode}' Content: '{response.Content}'";
-
-                        context.Log.LogError(diagnostic);
-
-                        var content = JsonConvert.DeserializeObject<dynamic>(response.Content);
-                        if (content.error != null)
-                        {
-                            throw new InvalidOperationException(
-                                $"{content.error.info} - Type: {content.error.type} Code: {content.error.code}");
-                        }
-
-                        // TODO else do what with content ? ...
+                        context.Log.LogInformation($"No bvd id provided with auto-match disabled. Skipping search execution - {Name}.");
                     }
-                }
-                else if (response.StatusCode == HttpStatusCode.NoContent ||
-                         response.StatusCode == HttpStatusCode.NotFound)
-                {
-                    var diagnostic =
-                        $"External search for Id: '{query.Id}' QueryKey: '{query.QueryKey}' produced no results - StatusCode: '{response.StatusCode}' Content: '{response.Content}'";
-
-                    context.Log.LogWarning(diagnostic);
 
                     yield break;
                 }
-                else if (response.ErrorException != null)
+
+                // If there is no bvd id and auto match toggle is enabled, search using the bvd id of first match
+                var searchCompany = SearchCompanies(context, query, apiToken, selectProperties, client, matchCompanies.FirstOrDefault()?.BvDId);
+                searchCompany.Data.First().Add("BvdIdNeedsAttention", false);
+                searchCompany.Data.First().Add("Hint", matchCompanies.FirstOrDefault()?.Hint);
+                searchCompany.Data.First().Add("Score", matchCompanies.FirstOrDefault()?.Score);
+
+                yield return new ExternalSearchQueryResult<BvDResponse>(query, searchCompany);
+                yield break;
+            }
+
+            // Enrich if bvd id (not empty) is provided and validate bvd id toggle is disabled
+            if (!jobData.ValidateBvDId)
+            {
+                var searchCompany = SearchCompanies(context, query, apiToken, selectProperties, client, bvd);
+                searchCompany.Data.First().Add("BvdIdNeedsAttention", false);
+
+                yield return new ExternalSearchQueryResult<BvDResponse>(query, searchCompany);
+                yield break;
+            }
+
+            // Validation starts
+            if (!matchCompanies.Any())
+            {
+                context.Log.LogInformation($"No match found for validation. Skipping search execution - {Name}.");
+                yield break;
+            }
+
+            // If bvd id exist in the list of possible match companies (PASS)
+            if (matchCompanies.Exists(x => x.BvDId == bvd))
+            {
+                var searchCompany = SearchCompanies(context, query, apiToken, selectProperties, client,
+                    bvd);
+                searchCompany.Data.First().Add("BvdIdNeedsAttention", false);
+                searchCompany.Data.First().Add("Hint", matchCompanies.FirstOrDefault()?.Hint);
+                searchCompany.Data.First().Add("Score", matchCompanies.FirstOrDefault()?.Score);
+
+                yield return new ExternalSearchQueryResult<BvDResponse>(query, searchCompany);
+                yield break;
+            }
+
+            // If bvd id not exist in the list of possible match companies (FAILED)
+            // If auto match toggle is enabled, search using the bvd id of first match
+            if (jobData.MatchFirstAndHighest)
+            {
+                var searchCompany = SearchCompanies(context, query, apiToken, selectProperties, client, matchCompanies.FirstOrDefault()?.BvDId);
+                searchCompany.Data.First().Add("BvdIdNeedsAttention", false);
+                searchCompany.Data.First().Add("Hint", matchCompanies.FirstOrDefault()?.Hint);
+                searchCompany.Data.First().Add("Score", matchCompanies.FirstOrDefault()?.Score);
+
+                yield return new ExternalSearchQueryResult<BvDResponse>(query, searchCompany);
+            }
+            else
+            {
+                // else return list of possible match json
+                var rawMatch = new BvDResponse
                 {
-                    var diagnostic =
-                        $"External search for Id: '{query.Id}' QueryKey: '{query.QueryKey}' produced no results - StatusCode: '{response.StatusCode}' Content: '{response.Content}'";
+                    SearchSummary = new SearchSummary
+                    {
+                        TotalRecordsFound = 0,
+                        Offset = 0,
+                        RecordsReturned = 0,
+                        DatabaseInfo = null,
+                        Sort = null
+                    },
+                    Data =
+                    [
+                        new Dictionary<string, object>
+                    {
+                        {"RawMatches", JsonConvert.SerializeObject(matchCompanies, new JsonSerializerSettings
+                        {
+                            NullValueHandling = NullValueHandling.Ignore
+                        })},
+                        {"BvdIdNeedsAttention", true}
+                    }
+                    ]
+                };
 
-                    context.Log.LogError(diagnostic, response.ErrorException);
-
-                    throw new AggregateException(response.ErrorException.Message, response.ErrorException);
-                }
-                else
-                {
-                    var diagnostic =
-                        $"Failed external search for Id: '{query.Id}' QueryKey: '{query.QueryKey}' - StatusCode: '{response.StatusCode}' Content: '{response.Content}'";
-
-                    context.Log.LogError(diagnostic);
-
-                    throw new ApplicationException(diagnostic);
-                }
-
-                context.Log.LogTrace("Finished external search for Id: '{Id}' QueryKey: '{QueryKey}'", query.Id,
-                    query.QueryKey);
+                yield return new ExternalSearchQueryResult<BvDResponse>(query, rawMatch);
             }
         }
     }
@@ -451,7 +605,245 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
         return GetPrimaryEntityPreviewImage(context, result, request, dummyConfig, dummyProvider);
     }
 
-    private ConnectionVerificationResult ConstructVerifyConnectionResponse(IRestResponse<BvDResponse> response)
+    private static MatchCondition GetMatchCondition(IExternalSearchQuery query, BvDExternalSearchJobData jobData)
+    {
+        var matchCondition = new MatchCondition
+        {
+            Criteria = new Dictionary<string, object>(),
+            Options = new Dictionary<string, object>()
+        };
+
+        if (query.QueryParameters.TryGetValue("Name", out var name))
+        {
+            matchCondition.Criteria.Add("Name", name.First());
+        }
+
+        if (query.QueryParameters.TryGetValue("Country", out var country))
+        {
+            matchCondition.Criteria.Add("Country", country.First());
+        }
+
+        if (query.QueryParameters.TryGetValue("Address", out var address))
+        {
+            matchCondition.Criteria.Add("Address", address.First());
+        }
+        if (query.QueryParameters.TryGetValue("City", out var city))
+        {
+            matchCondition.Criteria.Add("City", city.First());
+        }
+        if (query.QueryParameters.TryGetValue("PostCode", out var postCode))
+        {
+            matchCondition.Criteria.Add("PostCode", postCode.First());
+        }
+
+        if (query.QueryParameters.TryGetValue("State", out var state))
+        {
+            matchCondition.Criteria.Add("State", state.First());
+        }
+
+        if (query.QueryParameters.TryGetValue("Website", out var website) && !string.IsNullOrWhiteSpace(website.First()))
+        {
+            matchCondition.Criteria.Add("EmailOrWebsite", website.First());
+        }
+        else if (query.QueryParameters.TryGetValue("Email", out var email) && !string.IsNullOrWhiteSpace(email.First()))
+        {
+            matchCondition.Criteria.Add("EmailOrWebsite", email.First());
+        }
+
+        if (query.QueryParameters.TryGetValue("Phone", out var phone) && !string.IsNullOrWhiteSpace(phone.First()))
+        {
+            matchCondition.Criteria.Add("PhoneOrFax", phone.First());
+        }
+        else if (query.QueryParameters.TryGetValue("Fax", out var fax) && !string.IsNullOrWhiteSpace(fax.First()))
+        {
+            matchCondition.Criteria.Add("PhoneOrFax", fax.First());
+        }
+
+        if (query.QueryParameters.TryGetValue("NationalId", out var nationalId))
+        {
+            matchCondition.Criteria.Add("NationalId", nationalId.First());
+        }
+
+        if (query.QueryParameters.TryGetValue("Ticker", out var ticker))
+        {
+            matchCondition.Criteria.Add("Ticker", ticker.First());
+        }
+
+        if (query.QueryParameters.TryGetValue("Isin", out var isin))
+        {
+            matchCondition.Criteria.Add("Isin", isin.First());
+        }
+
+        matchCondition.Options.Add("ScoreLimit", jobData.ScoreLimit);
+
+        return matchCondition;
+    }
+
+    private static List<Matches> GetMatchCompanies(ExecutionContext context, IExternalSearchQuery query,
+    BvDExternalSearchJobData jobData, RestClient client)
+    {
+        var bvdRequest = new BvDMatchesRequest
+        {
+            Match = GetMatchCondition(query, jobData),
+            Select = _selectMatchFields
+        };
+
+        var request = new RestRequest("match", Method.POST);
+        request.AddHeader("Content-Type", "application/json");
+        request.AddHeader("ApiToken", jobData.ApiToken);
+        request.AddJsonBody(bvdRequest);
+        var response = client.ExecuteAsync<List<Matches>>(request).Result;
+
+        if (response.StatusCode == HttpStatusCode.OK)
+        {
+            var diagnostic =
+                $"External search (validation) for Id: '{query.Id}' QueryKey: '{query.QueryKey}' produced no results - StatusCode: '{response.StatusCode}' Content: '{response.Content}'";
+
+            if (response.Data is not { Count: > 0 })
+            {
+                context.Log.LogWarning(diagnostic);
+                return [];
+            }
+
+            var data = response.Data?.FirstOrDefault();
+            var name = data?.Name;
+
+            diagnostic =
+                $"External search (validation) for Id: '{query.Id}' QueryKey: '{query.QueryKey}' produced results, CompanyName: '{name}'";
+
+            context.Log.LogInformation(diagnostic);
+
+            return response.Data;
+
+        }
+
+        if (response.StatusCode is HttpStatusCode.NoContent or HttpStatusCode.NotFound)
+        {
+            var diagnostic =
+                $"External search (validation) for Id: '{query.Id}' QueryKey: '{query.QueryKey}' produced no results - StatusCode: '{response.StatusCode}' Content: '{response.Content}'";
+
+            context.Log.LogWarning(diagnostic);
+
+            return [];
+        }
+
+        if (response.ErrorException != null)
+        {
+            var diagnostic =
+                $"External search (validation) for Id: '{query.Id}' QueryKey: '{query.QueryKey}' produced no results - StatusCode: '{response.StatusCode}' Content: '{response.Content}'";
+
+            context.Log.LogError(diagnostic, response.ErrorException);
+
+            throw new AggregateException(response.ErrorException.Message, response.ErrorException);
+        }
+        else
+        {
+            var diagnostic =
+                $"Failed external search (validation) for Id: '{query.Id}' QueryKey: '{query.QueryKey}' - StatusCode: '{response.StatusCode}' Content: '{response.Content}'";
+
+            context.Log.LogError(diagnostic);
+
+            throw new ApplicationException(diagnostic);
+        }
+    }
+
+    private static BvDResponse SearchCompanies(ExecutionContext context, IExternalSearchQuery query, string apiToken,
+    string selectProperties, RestClient client, string bvd)
+    {
+        if (string.IsNullOrEmpty(bvd))
+        {
+            context.Log.LogTrace("No parameter for '{Identifier}' in query, skipping execute search",
+                ExternalSearchQueryParameter.Identifier);
+        }
+        else
+        {
+            bvd = WebUtility.UrlEncode(bvd);
+            var bvdRequest = new BvDRequest
+            {
+                Where =
+                [
+                    new Dictionary<string, string> { { "BvDID", bvd } }
+                ],
+                Select = !string.IsNullOrWhiteSpace(selectProperties)
+                    ? selectProperties.Split(',').Select(s => s.Trim()).ToList()
+                    : null
+            };
+
+            var request = new RestRequest("data", Method.POST);
+            request.AddHeader("Content-Type", "application/json");
+            request.AddHeader("ApiToken", apiToken);
+            request.AddJsonBody(bvdRequest);
+            var response = client.ExecuteAsync<BvDResponse>(request).Result;
+
+            if (response.StatusCode == HttpStatusCode.OK)
+            {
+                if (response.Data != null && response.Data.SearchSummary.TotalRecordsFound > 0)
+                {
+                    var data = response.Data?.Data?.FirstOrDefault();
+                    var name = data?.TryGetValue("NAME", out var value) is true ? value?.ToString() : string.Empty;
+                    var bvdNumber = data?.TryGetValue("BVD_ID_NUMBER", out var value1) is true ? value1?.ToString() : string.Empty;
+
+                    var diagnostic =
+                        $"External search for Id: '{query.Id}' QueryKey: '{query.QueryKey}' produced results, CompanyName: '{name}'  BvDNumber: '{bvdNumber}'";
+
+                    context.Log.LogTrace(diagnostic);
+
+                    return response.Data;
+                }
+                else
+                {
+                    var diagnostic =
+                        $"Failed external search for Id: '{query.Id}' QueryKey: '{query.QueryKey}' - StatusCode: '{response.StatusCode}' Content: '{response.Content}'";
+
+                    context.Log.LogError(diagnostic);
+
+                    var content = JsonConvert.DeserializeObject<dynamic>(response.Content);
+                    if (content.error != null)
+                    {
+                        throw new InvalidOperationException(
+                            $"{content.error.info} - Type: {content.error.type} Code: {content.error.code}");
+                    }
+
+                    // TODO else do what with content ? ...
+                }
+            }
+            else if (response.StatusCode == HttpStatusCode.NoContent ||
+                     response.StatusCode == HttpStatusCode.NotFound)
+            {
+                var diagnostic =
+                    $"External search for Id: '{query.Id}' QueryKey: '{query.QueryKey}' produced no results - StatusCode: '{response.StatusCode}' Content: '{response.Content}'";
+
+                context.Log.LogWarning(diagnostic);
+
+                return null;
+            }
+            else if (response.ErrorException != null)
+            {
+                var diagnostic =
+                    $"External search for Id: '{query.Id}' QueryKey: '{query.QueryKey}' produced no results - StatusCode: '{response.StatusCode}' Content: '{response.Content}'";
+
+                context.Log.LogError(diagnostic, response.ErrorException);
+
+                throw new AggregateException(response.ErrorException.Message, response.ErrorException);
+            }
+            else
+            {
+                var diagnostic =
+                    $"Failed external search for Id: '{query.Id}' QueryKey: '{query.QueryKey}' - StatusCode: '{response.StatusCode}' Content: '{response.Content}'";
+
+                context.Log.LogError(diagnostic);
+
+                throw new ApplicationException(diagnostic);
+            }
+
+            context.Log.LogTrace("Finished external search for Id: '{Id}' QueryKey: '{QueryKey}'", query.Id,
+                query.QueryKey);
+        }
+
+        return null;
+    }
+
+    private ConnectionVerificationResult ConstructVerifyConnectionResponse<T>(IRestResponse<T> response)
     {
         try
         {
@@ -473,13 +865,34 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
                 RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.IgnorePatternWhitespace);
             var isHtml = regex.IsMatch(response.Content);
 
-            var bvdErrorResponse = JsonConvert.DeserializeObject<BvDErrorResponse>(response.Content);
+            if (response.IsSuccessful)
+            {
+                return new ConnectionVerificationResult(response.IsSuccessful, string.Empty);
+            }
 
-            var errorMessage = response.IsSuccessful
-                ? string.Empty
-                : string.IsNullOrWhiteSpace(bvdErrorResponse.Found) || isHtml
+            var bvdErrorResponse = JsonConvert.DeserializeObject<BvDErrorResponse>(response.Content);
+            var formattedErrorMessage = string.Empty;
+
+            if (bvdErrorResponse.At != null)
+            {
+                formattedErrorMessage =
+                    $"Error at: \"{bvdErrorResponse.At}\"";
+            }
+
+            if (bvdErrorResponse.Found is { Count: > 0 })
+            {
+                formattedErrorMessage += $", Found: \"{bvdErrorResponse.Found.First().Value}\"";
+
+            }
+
+            if (bvdErrorResponse.Expect is { Count: > 0 })
+            {
+                formattedErrorMessage += $", Expect: \"{bvdErrorResponse.Expect.First().Value}\"";
+            }
+
+            var errorMessage = bvdErrorResponse.At == null && bvdErrorResponse.Found == null && bvdErrorResponse.Expect == null || isHtml
                     ? $"{errorMessageBase} This could be due to breaking changes in the external system."
-                    : $"{errorMessageBase} {bvdErrorResponse.Found}.";
+                    : $"{errorMessageBase} {formattedErrorMessage}.";
 
             return new ConnectionVerificationResult(response.IsSuccessful, errorMessage);
         }
@@ -554,6 +967,21 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
         }
 
         return value; // return whatever we have if max iteration reached
+    }
+
+    private static HashSet<string> GetValue(IExternalSearchRequest request, IDictionary<string, object> config, string keyName, VocabularyKey defaultKey)
+    {
+        HashSet<string> value;
+        if (config.TryGetValue(keyName, out var customVocabKey) && !string.IsNullOrWhiteSpace(customVocabKey?.ToString()))
+        {
+            value = request.QueryParameters.GetValue(customVocabKey.ToString(), []);
+        }
+        else
+        {
+            value = request.QueryParameters.GetValue(defaultKey, []);
+        }
+
+        return value;
     }
 
     private static void CreateVocabularyKeyIfNecessary(ExecutionContext context, Guid vocabId, string label = null)
