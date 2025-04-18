@@ -40,7 +40,9 @@ variables:
     value: true
   - name: buildConfiguration
     value: Release
-
+  - name: system.debug
+    value: true
+    
 steps:
   - task: UseDotNet@2
     displayName: Install .NET SDK 6.0
