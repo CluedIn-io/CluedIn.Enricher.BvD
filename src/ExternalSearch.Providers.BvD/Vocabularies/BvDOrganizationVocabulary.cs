@@ -112,7 +112,7 @@ public class BvDOrganizationVocabulary : SimpleVocabulary
             UssicSecondaryLabel = group.Add(new VocabularyKey("ussicSecondaryLabel"));
             BvdIdNumber = group.Add(new VocabularyKey("bvdIdNumber"));
             BvdAccountNumber = group.Add(new VocabularyKey("bvdAccountNumber"));
-            OrbisId = group.Add(new VocabularyKey("orbisid"));
+            OrbisId = group.Add(new VocabularyKey("orbisId"));
             NationalId = group.Add(new VocabularyKey("nationalId"));
             NationalIdLabel = group.Add(new VocabularyKey("nationalIdLabel"));
             NationalIdType = group.Add(new VocabularyKey("nationalIdType"));
