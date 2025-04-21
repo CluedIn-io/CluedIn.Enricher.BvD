@@ -12,16 +12,12 @@ using CluedIn.Core.Data;
 using CluedIn.Core.Data.Parts;
 using CluedIn.Core.Data.Relational;
 using CluedIn.Core.Data.Vocabularies;
-using CluedIn.Core.Data.Vocabularies.Models;
 using CluedIn.Core.ExternalSearch;
 using CluedIn.Core.Providers;
 using CluedIn.Crawling.Helpers;
 using CluedIn.ExternalSearch.Provider;
-using CluedIn.ExternalSearch.Providers.BvD.Helper;
 using CluedIn.ExternalSearch.Providers.BvD.Models;
 using CluedIn.ExternalSearch.Providers.BvD.Vocabularies;
-using CluedIn.Integration.PrivateServices.Vocabularies;
-
 using EntityType = CluedIn.Core.Data.EntityType;
 // ReSharper disable VirtualMemberCallInConstructor
 
@@ -138,7 +134,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
             var resultItem = result.As<BvDResponse>();
             var clue = new Clue(request.EntityMetaData.OriginEntityCode, context.Organization);
 
-            PopulateMetadata(context, clue.Data.EntityData, resultItem, request);
+            PopulateMetadata(clue.Data.EntityData, resultItem, request);
 
             context.Log.LogInformation(
                 "Clue produced, Id: '{Id}' OriginEntityCode: '{OriginEntityCode}' RawText: '{RawText}'", clue.Id,
@@ -169,7 +165,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
         using (context.Log.BeginScope("{0} {1}: request {2}, result {3}", GetType().Name, "GetPrimaryEntityMetadata",
                    request, result))
         {
-            var metadata = CreateMetadata(context, result.As<BvDResponse>(), request);
+            var metadata = CreateMetadata(result.As<BvDResponse>(), request);
 
             context.Log.LogInformation(
                 "Primary entity meta data created, Name: '{Name}' OriginEntityCode: '{OriginEntityCode}'",
@@ -320,7 +316,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
 
             if (!Accepts(config, request.EntityMetaData.EntityType))
             {
-                context.Log.LogTrace("Unacceptable business domain from '{EntityName}', identifier '{EntityCode}'",
+                context.Log.LogTrace("Unacceptable entity type from '{EntityName}', entity code '{EntityCode}'",
                     request.EntityMetaData.DisplayName, request.EntityMetaData.EntityType.Code);
                 yield break;
             }
@@ -902,17 +898,17 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
         }
     }
 
-    private IEntityMetadata CreateMetadata(ExecutionContext context, IExternalSearchQueryResult<BvDResponse> resultItem,
+    private IEntityMetadata CreateMetadata(IExternalSearchQueryResult<BvDResponse> resultItem,
         IExternalSearchRequest request)
     {
         var metadata = new EntityMetadataPart();
 
-        PopulateMetadata(context, metadata, resultItem, request);
+        PopulateMetadata(metadata, resultItem, request);
 
         return metadata;
     }
 
-    private void PopulateMetadata(ExecutionContext context, IEntityMetadata metadata, IExternalSearchQueryResult<BvDResponse> resultItem,
+    private void PopulateMetadata(IEntityMetadata metadata, IExternalSearchQueryResult<BvDResponse> resultItem,
         IExternalSearchRequest request)
     {
         var data = resultItem.Data.Data.First();
@@ -921,13 +917,10 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
         metadata.Name = request.EntityMetaData.Name;
         metadata.OriginEntityCode = request.EntityMetaData.OriginEntityCode;
 
-        var vocabId = GetOrCreateBvDVocabularyId(context);
         var bvdOrganizationVocabulary = new BvDOrganizationVocabulary();
-
         foreach (var kvp in data)
         {
             var camelCaseKey = kvp.Key.Replace("_", " ").ToLowerInvariant().ToCamelCase();
-            CreateVocabularyKeyIfNecessary(context, vocabId, camelCaseKey);
             metadata.Properties[bvdOrganizationVocabulary.KeyPrefix + bvdOrganizationVocabulary.KeySeparator + camelCaseKey] = FirstIfSingleArray(kvp.Value).PrintIfAvailable();
         }
     }
@@ -982,73 +975,6 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
         }
 
         return value;
-    }
-
-    private static void CreateVocabularyKeyIfNecessary(ExecutionContext context, Guid vocabId, string label = null)
-    {
-        var cacheKey = $"BvD_CreateVocabularyKeyIfNecessary_{label}";
-
-        var cached = context.ApplicationContext.System.Cache.GetItem<object>(cacheKey);
-        if (cached != null)
-        {
-            return;
-        }
-
-        using (LockHelper.GetDistributedLockAsync(context.ApplicationContext, "BvD_CreateVocab_Lock", TimeSpan.FromMinutes(1)).GetAwaiter().GetResult())
-        {
-            var vocabularyRepository = context.ApplicationContext.Container.Resolve<IPrivateVocabularyRepository>();
-            var bvdOrganizationVocabulary = new BvDOrganizationVocabulary();
-            var existingVocabKey = vocabularyRepository.GetVocabularyKeyByFullName(bvdOrganizationVocabulary.KeyPrefix + bvdOrganizationVocabulary.KeySeparator + label);
-            if (existingVocabKey == null)
-            {
-                var newVocabKey = new AddVocabularyKeyModel
-                {
-                    VocabularyId = vocabId,
-                    DisplayName = label,
-                    GroupName = "Metadata",
-                    Name = label,
-                    DataType = VocabularyKeyDataType.Text,
-                    IsVisible = true,
-                    Storage = VocabularyKeyStorage.Keyword
-                };
-                var vocabKeyId = vocabularyRepository.AddVocabularyKey(newVocabKey, context, Guid.Empty.ToString()).GetAwaiter().GetResult();
-                vocabularyRepository.ActivateVocabularyKey(context, vocabKeyId).GetAwaiter().GetResult();
-            }
-            context.ApplicationContext.System.Cache.SetItem(cacheKey, new object(), DateTimeOffset.Now.AddMinutes(1));
-        }
-    }
-
-    private static Guid GetOrCreateBvDVocabularyId(ExecutionContext context)
-    {
-        const string cacheKey = "BvD-GetExistingVocabulary";
-        var cached = context.ApplicationContext.System.Cache.GetItem<object>(cacheKey);
-        if (cached != null)
-        {
-            return (Guid)cached;
-        }
-
-        using (LockHelper.GetDistributedLockAsync(context.ApplicationContext, "BvD_CreateVocab_Lock", TimeSpan.FromMinutes(1)).GetAwaiter().GetResult())
-        {
-            var vocabularyRepository = context.ApplicationContext.Container.Resolve<IPrivateVocabularyRepository>();
-
-            var vocab = vocabularyRepository.GetVocabularyByKeyPrefix("BvD.organization");
-
-            Guid vocabId;
-            if (vocab == null)
-            {
-                var newVocab = new AddVocabularyModel { VocabularyName = "BvD Organization", KeyPrefix = "BvD.organization", Grouping = EntityType.Organization };
-                vocabId = vocabularyRepository.AddVocabulary(newVocab, Guid.Empty.ToString(), context.Organization.Id).GetAwaiter().GetResult();
-                vocabularyRepository.ActivateVocabulary(context, vocabId).GetAwaiter().GetResult();
-            }
-            else
-            {
-                vocabId = vocab.VocabularyId;
-            }
-
-            context.ApplicationContext.System.Cache.SetItem(cacheKey, (object)vocabId, DateTimeOffset.Now.AddMinutes(1));
-
-            return vocabId;
-        }
     }
 
     // Since this is a configurable external search provider, these methods should never be called
