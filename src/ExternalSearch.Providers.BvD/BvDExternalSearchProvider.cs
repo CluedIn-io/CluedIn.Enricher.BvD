@@ -134,7 +134,8 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
                    query, request, result))
         {
             var resultItem = result.As<BvDResponse>();
-            var clue = new Clue(request.EntityMetaData.OriginEntityCode, context.Organization);
+            var code = new EntityCode(request.EntityMetaData.OriginEntityCode.Type, "BVD", $"{query.QueryKey}{request.EntityMetaData.OriginEntityCode}".ToDeterministicGuid());
+            var clue = new Clue(code, context.Organization);
 
             PopulateMetadata(clue.Data.EntityData, resultItem, request);
 
@@ -940,10 +941,12 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
         IExternalSearchRequest request)
     {
         var data = resultItem.Data.Data.First();
+        var code = new EntityCode(request.EntityMetaData.OriginEntityCode.Type, "BVD", $"{request.Queries.FirstOrDefault()?.QueryKey}{request.EntityMetaData.OriginEntityCode}".ToDeterministicGuid());
 
         metadata.EntityType = request.EntityMetaData.EntityType;
         metadata.Name = request.EntityMetaData.Name;
-        metadata.OriginEntityCode = request.EntityMetaData.OriginEntityCode;
+        metadata.OriginEntityCode = code;
+        metadata.Codes.Add(request.EntityMetaData.OriginEntityCode);
 
         var bvdOrganizationVocabulary = new BvDOrganizationVocabulary();
         foreach (var kvp in data)
