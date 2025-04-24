@@ -410,7 +410,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
                             ExternalSearchQueryParameter.Identifier, entityType.Code, value);
 
                         request.CustomQueryInput = bvdId.ElementAt(0);
-                        conditions.Add(nameof(Constants.KeyName.ValidateBvDId), (!string.IsNullOrEmpty(value) && config.ValidateBvDId).ToString()); // If BvDId is null, don't validate
+                        conditions.Add(nameof(Constants.KeyName.ValidateBvDId), config.ValidateBvDId.ToString());
                         conditions.Add("BvDId", value);
 
                         yield return new ExternalSearchQuery(this, entityType, conditions);
