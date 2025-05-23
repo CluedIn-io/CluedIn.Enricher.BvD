@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Net;
 using System.Text.RegularExpressions;
+using AngleSharp.Text;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using RestSharp;
@@ -105,7 +107,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
             jobData.ValidateBvDId = false; // TODO The toggle is not set to false if hidden in UI
         }
 
-        return InternalExecuteSearch(context, query, jobData.ApiToken, jobData.SelectProperties, jobData);
+        return InternalExecuteSearch(context, query, jobData.ApiToken, jobData);
     }
 
     public IEnumerable<Clue> BuildClues(ExecutionContext context, IExternalSearchQuery query,
@@ -136,7 +138,8 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
                    query, request, result))
         {
             var resultItem = result.As<BvDResponse>();
-            var clue = new Clue(request.EntityMetaData.OriginEntityCode, context.Organization);
+            var code = new EntityCode(request.EntityMetaData.OriginEntityCode.Type, "BVD", $"{query.QueryKey}{request.EntityMetaData.OriginEntityCode}".ToDeterministicGuid());
+            var clue = new Clue(code, context.Organization);
 
             PopulateMetadata(context, clue.Data.EntityData, resultItem, request);
 
@@ -376,19 +379,22 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
 
             var conditions = new Dictionary<string, string>
             {
-                {nameof(Constants.KeyName.Name),       name.FirstOrDefault() ?? string.Empty},
-                {nameof(Constants.KeyName.Country),    country.FirstOrDefault() ?? string.Empty},
-                {nameof(Constants.KeyName.Address),    address.FirstOrDefault() ?? string.Empty},
-                {nameof(Constants.KeyName.City),       city.FirstOrDefault() ?? string.Empty},
-                {nameof(Constants.KeyName.PostCode),   postCode.FirstOrDefault() ?? string.Empty},
-                {nameof(Constants.KeyName.State),      state.FirstOrDefault() ?? string.Empty},
-                {nameof(Constants.KeyName.Website),    website.FirstOrDefault() ?? string.Empty},
-                {nameof(Constants.KeyName.Email),      email.FirstOrDefault() ?? string.Empty},
-                {nameof(Constants.KeyName.Phone),      phone.FirstOrDefault() ?? string.Empty},
-                {nameof(Constants.KeyName.Fax),        fax.FirstOrDefault() ?? string.Empty},
-                {nameof(Constants.KeyName.NationalId), nationalId.FirstOrDefault() ?? string.Empty},
-                {nameof(Constants.KeyName.Ticker),     ticker.FirstOrDefault() ?? string.Empty},
-                {nameof(Constants.KeyName.Isin),       isin.FirstOrDefault() ?? string.Empty}
+                {nameof(Constants.KeyName.Name),                 name.FirstOrDefault() ?? string.Empty},
+                {nameof(Constants.KeyName.Country),              country.FirstOrDefault() ?? string.Empty},
+                {nameof(Constants.KeyName.Address),              address.FirstOrDefault() ?? string.Empty},
+                {nameof(Constants.KeyName.City),                 city.FirstOrDefault() ?? string.Empty},
+                {nameof(Constants.KeyName.PostCode),             postCode.FirstOrDefault() ?? string.Empty},
+                {nameof(Constants.KeyName.State),                state.FirstOrDefault() ?? string.Empty},
+                {nameof(Constants.KeyName.Website),              website.FirstOrDefault() ?? string.Empty},
+                {nameof(Constants.KeyName.Email),                email.FirstOrDefault() ?? string.Empty},
+                {nameof(Constants.KeyName.Phone),                phone.FirstOrDefault() ?? string.Empty},
+                {nameof(Constants.KeyName.Fax),                  fax.FirstOrDefault() ?? string.Empty},
+                {nameof(Constants.KeyName.NationalId),           nationalId.FirstOrDefault() ?? string.Empty},
+                {nameof(Constants.KeyName.Ticker),               ticker.FirstOrDefault() ?? string.Empty},
+                {nameof(Constants.KeyName.Isin),                 isin.FirstOrDefault() ?? string.Empty},
+                {nameof(Constants.KeyName.SelectProperties),     config.SelectProperties},
+                {nameof(Constants.KeyName.MatchFirstAndHighest), config.MatchFirstAndHighest.ToString()},
+                {nameof(Constants.KeyName.ScoreLimit),           config.ScoreLimit.ToString(CultureInfo.InvariantCulture)}
             };
 
             var filteredValues = bvdId.Where(v => !bvd(v)).ToArray();
@@ -409,6 +415,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
                             ExternalSearchQueryParameter.Identifier, entityType.Code, value);
 
                         request.CustomQueryInput = bvdId.ElementAt(0);
+                        conditions.Add(nameof(Constants.KeyName.ValidateBvDId), config.ValidateBvDId.ToString());
                         conditions.Add("BvDId", value);
 
                         yield return new ExternalSearchQuery(this, entityType, conditions);
@@ -425,7 +432,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
     }
 
     private IEnumerable<IExternalSearchQueryResult> InternalExecuteSearch(ExecutionContext context,
-        IExternalSearchQuery query, string apiToken, string selectProperties, BvDExternalSearchJobData jobData)
+        IExternalSearchQuery query, string apiToken, BvDExternalSearchJobData jobData)
     {
         if (string.IsNullOrEmpty(apiToken))
         {
@@ -453,19 +460,50 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
                 bvd = bvdId.First();
             }
 
+            var isValidateBvDId = false;
+            if (query.QueryParameters.TryGetValue(nameof(Constants.KeyName.ValidateBvDId), out var validate))
+            {
+                isValidateBvDId = validate.First().ToBoolean();
+            }
+
+            var isAutoMatch = false;
+            if (query.QueryParameters.TryGetValue(nameof(Constants.KeyName.MatchFirstAndHighest), out var autoMatch))
+            {
+                isAutoMatch = autoMatch.First().ToBoolean();
+            }
+
+            var selectProperties = string.Empty;
+            if (query.QueryParameters.TryGetValue(nameof(Constants.KeyName.SelectProperties), out var properties))
+            {
+                selectProperties = properties.First();
+            }
+
+            var scoreLimit = 0.0;
+            if (query.QueryParameters.TryGetValue(nameof(Constants.KeyName.ScoreLimit), out var score))
+            {
+                scoreLimit = score.First().ToDouble();
+            }
+
             var client = new RestClient("https://api.bvdinfo.com/v1/orbis/Companies");
+            var searchCompany = SearchCompanies(context, query, apiToken, selectProperties, client, bvd);
+
+            // Set bvd id as empty if no results after searching by bvd id, to filter out unusable value like "nan", "none", "null" etc
+            if (searchCompany == null)
+            {
+                bvd = string.Empty;
+            }
 
             // If bvd id is not null and both validate bvd id and auto match toggles are disabled.
-            if (!string.IsNullOrEmpty(bvd) && !jobData.ValidateBvDId && !jobData.MatchFirstAndHighest)
+            if (!string.IsNullOrEmpty(bvd) && !isValidateBvDId && !isAutoMatch)
             {
-                var searchCompany = SearchCompanies(context, query, apiToken, selectProperties, client, bvd);
-                searchCompany.Data.First().Add("BvdIdNeedsAttention", false);
+                //var searchCompany = SearchCompanies(context, query, apiToken, selectProperties, client, bvd);
+                searchCompany?.Data?.First().Add("BvdIdNeedsAttention", false);
 
                 yield return new ExternalSearchQueryResult<BvDResponse>(query, searchCompany);
                 yield break;
             }
 
-            var matchCompanies = GetMatchCompanies(context, query, jobData, client);
+            var matchCompanies = GetMatchCompanies(context, query, jobData, client, scoreLimit);
 
             if (string.IsNullOrEmpty(bvd))
             {
@@ -475,9 +513,9 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
                     yield break;
                 }
 
-                if (!jobData.MatchFirstAndHighest)
+                if (!isAutoMatch)
                 {
-                    if (jobData.ValidateBvDId)
+                    if (isValidateBvDId)
                     {
                         // Return list of possible match json
                         var rawMatch = new BvDResponse
@@ -514,20 +552,20 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
                 }
 
                 // If there is no bvd id and auto match toggle is enabled, search using the bvd id of first match
-                var searchCompany = SearchCompanies(context, query, apiToken, selectProperties, client, matchCompanies.FirstOrDefault()?.BvDId);
-                searchCompany.Data.First().Add("BvdIdNeedsAttention", false);
-                searchCompany.Data.First().Add("Hint", matchCompanies.FirstOrDefault()?.Hint);
-                searchCompany.Data.First().Add("Score", matchCompanies.FirstOrDefault()?.Score);
+                var searchCompanyFuzzyMatch = SearchCompanies(context, query, apiToken, selectProperties, client, matchCompanies.FirstOrDefault()?.BvDId);
+                searchCompanyFuzzyMatch?.Data.First().Add("BvdIdNeedsAttention", false);
+                searchCompanyFuzzyMatch?.Data.First().Add("Hint", matchCompanies.FirstOrDefault()?.Hint);
+                searchCompanyFuzzyMatch?.Data.First().Add("Score", matchCompanies.FirstOrDefault()?.Score);
 
-                yield return new ExternalSearchQueryResult<BvDResponse>(query, searchCompany);
+                yield return new ExternalSearchQueryResult<BvDResponse>(query, searchCompanyFuzzyMatch);
                 yield break;
             }
 
             // Enrich if bvd id (not empty) is provided and validate bvd id toggle is disabled
-            if (!jobData.ValidateBvDId)
+            if (!isValidateBvDId)
             {
-                var searchCompany = SearchCompanies(context, query, apiToken, selectProperties, client, bvd);
-                searchCompany.Data.First().Add("BvdIdNeedsAttention", false);
+                //var searchCompany = SearchCompanies(context, query, apiToken, selectProperties, client, bvd);
+                searchCompany?.Data.First().Add("BvdIdNeedsAttention", false);
 
                 yield return new ExternalSearchQueryResult<BvDResponse>(query, searchCompany);
                 yield break;
@@ -543,11 +581,11 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
             // If bvd id exist in the list of possible match companies (PASS)
             if (matchCompanies.Exists(x => x.BvDId == bvd))
             {
-                var searchCompany = SearchCompanies(context, query, apiToken, selectProperties, client,
-                    bvd);
-                searchCompany.Data.First().Add("BvdIdNeedsAttention", false);
-                searchCompany.Data.First().Add("Hint", matchCompanies.FirstOrDefault()?.Hint);
-                searchCompany.Data.First().Add("Score", matchCompanies.FirstOrDefault()?.Score);
+                //var searchCompany = SearchCompanies(context, query, apiToken, selectProperties, client,
+                //    bvd);
+                searchCompany?.Data.First().Add("BvdIdNeedsAttention", false);
+                searchCompany?.Data.First().Add("Hint", matchCompanies.FirstOrDefault()?.Hint);
+                searchCompany?.Data.First().Add("Score", matchCompanies.FirstOrDefault()?.Score);
 
                 yield return new ExternalSearchQueryResult<BvDResponse>(query, searchCompany);
                 yield break;
@@ -555,14 +593,14 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
 
             // If bvd id not exist in the list of possible match companies (FAILED)
             // If auto match toggle is enabled, search using the bvd id of first match
-            if (jobData.MatchFirstAndHighest)
+            if (isAutoMatch)
             {
-                var searchCompany = SearchCompanies(context, query, apiToken, selectProperties, client, matchCompanies.FirstOrDefault()?.BvDId);
-                searchCompany.Data.First().Add("BvdIdNeedsAttention", false);
-                searchCompany.Data.First().Add("Hint", matchCompanies.FirstOrDefault()?.Hint);
-                searchCompany.Data.First().Add("Score", matchCompanies.FirstOrDefault()?.Score);
+                var searchCompanyFuzzyMatch = SearchCompanies(context, query, apiToken, selectProperties, client, matchCompanies.FirstOrDefault()?.BvDId);
+                searchCompanyFuzzyMatch?.Data.First().Add("BvdIdNeedsAttention", false);
+                searchCompanyFuzzyMatch?.Data.First().Add("Hint", matchCompanies.FirstOrDefault()?.Hint);
+                searchCompanyFuzzyMatch?.Data.First().Add("Score", matchCompanies.FirstOrDefault()?.Score);
 
-                yield return new ExternalSearchQueryResult<BvDResponse>(query, searchCompany);
+                yield return new ExternalSearchQueryResult<BvDResponse>(query, searchCompanyFuzzyMatch);
             }
             else
             {
@@ -605,7 +643,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
         return GetPrimaryEntityPreviewImage(context, result, request, dummyConfig, dummyProvider);
     }
 
-    private static MatchCondition GetMatchCondition(IExternalSearchQuery query, BvDExternalSearchJobData jobData)
+    private static MatchCondition GetMatchCondition(IExternalSearchQuery query, double scoreLimit)
     {
         var matchCondition = new MatchCondition
         {
@@ -674,17 +712,17 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
             matchCondition.Criteria.Add("Isin", isin.First());
         }
 
-        matchCondition.Options.Add("ScoreLimit", jobData.ScoreLimit);
+        matchCondition.Options.Add("ScoreLimit", scoreLimit);
 
         return matchCondition;
     }
 
     private static List<Matches> GetMatchCompanies(ExecutionContext context, IExternalSearchQuery query,
-    BvDExternalSearchJobData jobData, RestClient client)
+    BvDExternalSearchJobData jobData, RestClient client, double scoreLimit)
     {
         var bvdRequest = new BvDMatchesRequest
         {
-            Match = GetMatchCondition(query, jobData),
+            Match = GetMatchCondition(query, scoreLimit),
             Select = _selectMatchFields
         };
 
@@ -793,18 +831,9 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
                 else
                 {
                     var diagnostic =
-                        $"Failed external search for Id: '{query.Id}' QueryKey: '{query.QueryKey}' - StatusCode: '{response.StatusCode}' Content: '{response.Content}'";
+                        $"External search for Id: '{query.Id}' QueryKey: '{query.QueryKey}' produced no results - StatusCode: '{response.StatusCode}' Content: '{response.Content}'";
 
-                    context.Log.LogError(diagnostic);
-
-                    var content = JsonConvert.DeserializeObject<dynamic>(response.Content);
-                    if (content.error != null)
-                    {
-                        throw new InvalidOperationException(
-                            $"{content.error.info} - Type: {content.error.type} Code: {content.error.code}");
-                    }
-
-                    // TODO else do what with content ? ...
+                    context.Log.LogInformation(diagnostic);
                 }
             }
             else if (response.StatusCode == HttpStatusCode.NoContent ||
@@ -916,14 +945,15 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
         IExternalSearchRequest request)
     {
         var data = resultItem.Data.Data.First();
+        var code = new EntityCode(request.EntityMetaData.OriginEntityCode.Type, "BVD", $"{request.Queries.FirstOrDefault()?.QueryKey}{request.EntityMetaData.OriginEntityCode}".ToDeterministicGuid());
 
         metadata.EntityType = request.EntityMetaData.EntityType;
         metadata.Name = request.EntityMetaData.Name;
-        metadata.OriginEntityCode = request.EntityMetaData.OriginEntityCode;
+        metadata.OriginEntityCode = code;
+        metadata.Codes.Add(request.EntityMetaData.OriginEntityCode);
 
         var vocabId = GetOrCreateBvDVocabularyId(context);
         var bvdOrganizationVocabulary = new BvDOrganizationVocabulary();
-
         foreach (var kvp in data)
         {
             var camelCaseKey = kvp.Key.Replace("_", " ").ToLowerInvariant().ToCamelCase();
@@ -951,16 +981,16 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
 
                 // if value is an enumerable (like a list) with exactly one element
                 case System.Collections.IEnumerable enumerable:
-                {
-                    var items = enumerable.Cast<object>().ToList();
-                    if (items.Count == 1)
                     {
-                        value = items[0];
-                        continue;
-                    }
+                        var items = enumerable.Cast<object>().ToList();
+                        if (items.Count == 1)
+                        {
+                            value = items[0];
+                            continue;
+                        }
 
-                    break;
-                }
+                        break;
+                    }
             }
 
             return value;
