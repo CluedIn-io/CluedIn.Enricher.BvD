@@ -497,7 +497,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
             if (!string.IsNullOrEmpty(bvd) && !isValidateBvDId && !isAutoMatch)
             {
                 //var searchCompany = SearchCompanies(context, query, apiToken, selectProperties, client, bvd);
-                searchCompany?.Data?.First().Add("BvdIdNeedsAttention", false);
+                searchCompany?.Data?.First().Add("Bvd_Id_Needs_Attention", false);
 
                 yield return new ExternalSearchQueryResult<BvDResponse>(query, searchCompany);
                 yield break;
@@ -536,7 +536,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
                                     {
                                         NullValueHandling = NullValueHandling.Ignore
                                     })},
-                                    {"BvdIdNeedsAttention", true}
+                                    {"Bvd_Id_Needs_Attention", true}
                                 }
                             ]
                         };
@@ -553,7 +553,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
 
                 // If there is no bvd id and auto match toggle is enabled, search using the bvd id of first match
                 var searchCompanyFuzzyMatch = SearchCompanies(context, query, apiToken, selectProperties, client, matchCompanies.FirstOrDefault()?.BvDId);
-                searchCompanyFuzzyMatch?.Data.First().Add("BvdIdNeedsAttention", false);
+                searchCompanyFuzzyMatch?.Data.First().Add("Bvd_Id_Needs_Attention", false);
                 searchCompanyFuzzyMatch?.Data.First().Add("Hint", matchCompanies.FirstOrDefault()?.Hint);
                 searchCompanyFuzzyMatch?.Data.First().Add("Score", matchCompanies.FirstOrDefault()?.Score);
 
@@ -565,7 +565,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
             if (!isValidateBvDId)
             {
                 //var searchCompany = SearchCompanies(context, query, apiToken, selectProperties, client, bvd);
-                searchCompany?.Data.First().Add("BvdIdNeedsAttention", false);
+                searchCompany?.Data.First().Add("Bvd_Id_Needs_Attention", false);
 
                 yield return new ExternalSearchQueryResult<BvDResponse>(query, searchCompany);
                 yield break;
@@ -583,7 +583,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
             {
                 //var searchCompany = SearchCompanies(context, query, apiToken, selectProperties, client,
                 //    bvd);
-                searchCompany?.Data.First().Add("BvdIdNeedsAttention", false);
+                searchCompany?.Data.First().Add("Bvd_Id_Needs_Attention", false);
                 searchCompany?.Data.First().Add("Hint", matchCompanies.FirstOrDefault()?.Hint);
                 searchCompany?.Data.First().Add("Score", matchCompanies.FirstOrDefault()?.Score);
 
@@ -596,7 +596,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
             if (isAutoMatch)
             {
                 var searchCompanyFuzzyMatch = SearchCompanies(context, query, apiToken, selectProperties, client, matchCompanies.FirstOrDefault()?.BvDId);
-                searchCompanyFuzzyMatch?.Data.First().Add("BvdIdNeedsAttention", false);
+                searchCompanyFuzzyMatch?.Data.First().Add("Bvd_Id_Needs_Attention", false);
                 searchCompanyFuzzyMatch?.Data.First().Add("Hint", matchCompanies.FirstOrDefault()?.Hint);
                 searchCompanyFuzzyMatch?.Data.First().Add("Score", matchCompanies.FirstOrDefault()?.Score);
 
@@ -623,7 +623,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
                         {
                             NullValueHandling = NullValueHandling.Ignore
                         })},
-                        {"BvdIdNeedsAttention", true}
+                        {"Bvd_Id_Needs_Attention", true}
                     }
                     ]
                 };
