@@ -532,7 +532,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
                             [
                                 new Dictionary<string, object>
                                 {
-                                    {"RawMatches", JsonConvert.SerializeObject(matchCompanies, new JsonSerializerSettings
+                                    {"Raw_Matches", JsonConvert.SerializeObject(matchCompanies, new JsonSerializerSettings
                                     {
                                         NullValueHandling = NullValueHandling.Ignore
                                     })},
@@ -619,7 +619,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
                     [
                         new Dictionary<string, object>
                     {
-                        {"RawMatches", JsonConvert.SerializeObject(matchCompanies, new JsonSerializerSettings
+                        {"Raw_Matches", JsonConvert.SerializeObject(matchCompanies, new JsonSerializerSettings
                         {
                             NullValueHandling = NullValueHandling.Ignore
                         })},
