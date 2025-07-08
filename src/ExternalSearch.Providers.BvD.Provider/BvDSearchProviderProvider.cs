@@ -10,6 +10,7 @@ using CluedIn.Core.Providers;
 using CluedIn.Core.Webhooks;
 using CluedIn.ExternalSearch;
 using CluedIn.ExternalSearch.Providers.BvD;
+using CluedIn.ExternalSearch.Providers.BvD.Vocabularies;
 using CluedIn.Providers.Models;
 using Constants = CluedIn.ExternalSearch.Providers.BvD.Constants;
 
@@ -33,6 +34,21 @@ public class BvDSearchProviderProvider : ProviderBase, IExtendedProviderMetadata
     public Guide Guide { get; } = Constants.Guide;
     public new IntegrationType Type { get; } = Constants.IntegrationType;
     public IExternalSearchProvider ExternalSearchProvider { get; }
+    public bool SupportsEnricherV2 => true;
+    public Dictionary<string, object> ExtraInfo { get; } = new()
+    {
+        { "autoMap", true },
+        { "useEnricherOriginEntityCode", true },
+        { "supportConfidenceScore", true }, // for UI
+        { "minConfidenceScore", 0 }, // for UI
+        { "maxConfidenceScore", 100 }, // for UI
+        { "origin", Constants.ProviderName.ToCamelCase() },
+        { "originField", string.Empty },
+        { "nameKeyField", Constants.KeyName.Name },
+        { "vocabKeyPrefix", BvDVocabulary.Organization.KeyPrefix },
+        { "autoSubmission", false },
+        { "dataSourceSetId", string.Empty },
+    };
 
     private static IProviderMetadata GetMetaData()
     {
