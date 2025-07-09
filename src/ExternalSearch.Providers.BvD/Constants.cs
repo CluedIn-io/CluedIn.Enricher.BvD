@@ -128,6 +128,8 @@ public static class Constants
             Name = KeyName.ScoreLimit,
             Help =
                 "The score limit required for matches to be considered in the validation process. (e.g., if you enter 0.5, only matches with scores more than 0.5 will be used for validation).",
+            ValidationRules =
+                [new Dictionary<string, string> { { "regex", @"^(?!(?:0(?:\.\d+)?|1(?:\.0+)?)$).+$" }, { "message", "Non-numeric values and numeric values outside 0 to 1 are not allowed." } }]
         },
         new()
         {
