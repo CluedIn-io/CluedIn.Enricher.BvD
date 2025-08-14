@@ -49,6 +49,21 @@ public class BvDSearchProviderProvider : ProviderBase, IExtendedProviderMetadata
         { "autoSubmission", false },
         { "dataSourceSetId", string.Empty },
     };
+    public Dictionary<string, HashSet<string>> ValidRequiredFieldConfigurationCombinations => new() {
+        { "Name", [Constants.KeyName.Name] },
+        { "Country", [Constants.KeyName.Country] },
+        { "Address", [Constants.KeyName.Address] },
+        { "City", [Constants.KeyName.City] },
+        { "Post Code", [Constants.KeyName.PostCode] },
+        { "State", [Constants.KeyName.State] },
+        { "Website", [Constants.KeyName.Website] },
+        { "Email", [Constants.KeyName.Email] },
+        { "Phone number", [Constants.KeyName.Phone] },
+        { "Fax number", [Constants.KeyName.Fax] },
+        { "National ID", [Constants.KeyName.NationalId] },
+        { "Ticker", [Constants.KeyName.Ticker] },
+        { "ISIN", [Constants.KeyName.Isin] }
+    };
 
     private static IProviderMetadata GetMetaData()
     {
