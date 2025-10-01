@@ -162,6 +162,7 @@ public class BvDOrganizationVocabulary : SimpleVocabulary
             OperatingRevenue = group.Add(new VocabularyKey("opre"));
             Score = group.Add(new VocabularyKey("score"));
             Hint = group.Add(new VocabularyKey("hint"));
+            ConfidenceScore = group.Add(new VocabularyKey("_cluedin_confidenceScore"));
         });
     }
 
@@ -300,4 +301,5 @@ public class BvDOrganizationVocabulary : SimpleVocabulary
     public VocabularyKey OperatingRevenue { get; protected set; }
     public VocabularyKey Score { get; protected set; }
     public VocabularyKey Hint { get; protected set; }
+    public VocabularyKey ConfidenceScore { get; set; }
 }

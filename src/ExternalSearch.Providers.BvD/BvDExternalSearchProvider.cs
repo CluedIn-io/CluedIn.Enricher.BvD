@@ -960,6 +960,16 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
             CreateVocabularyKeyIfNecessary(context, vocabId, camelCaseKey);
             metadata.Properties[bvdOrganizationVocabulary.KeyPrefix + bvdOrganizationVocabulary.KeySeparator + camelCaseKey] = FirstIfSingleArray(kvp.Value).PrintIfAvailable();
         }
+
+        if (data.TryGetValue("Score", out var rawValue) && rawValue != null && decimal.TryParse(rawValue.ToString(), out var confidenceScore))
+        {
+            // convert decimal value of confidence score to whole number
+            metadata.Properties[BvDVocabulary.Organization.ConfidenceScore] = (confidenceScore * 100).ToString(CultureInfo.InvariantCulture);
+        }
+        else
+        {
+            metadata.Properties[BvDVocabulary.Organization.ConfidenceScore] =  "0";
+        }
     }
 
     private static object FirstIfSingleArray(object value)
