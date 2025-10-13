@@ -1051,7 +1051,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
                     IsVisible = true,
                     Storage = VocabularyKeyStorage.Keyword
                 };
-                var vocabKeyId = vocabularyRepository.AddVocabularyKeyAsync(newVocabKey, context).GetAwaiter().GetResult();
+                var vocabKeyId = vocabularyRepository.AddVocabularyKeyAsync(context, newVocabKey).GetAwaiter().GetResult();
                 vocabularyRepository.ActivateVocabularyKeyAsync(context, vocabKeyId).GetAwaiter().GetResult();
             }
             context.ApplicationContext.System.Cache.SetItem(cacheKey, new object(), DateTimeOffset.Now.AddMinutes(1));
