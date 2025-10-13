@@ -1076,7 +1076,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
             if (vocab == null)
             {
                 var newVocab = new AddVocabularyModel { VocabularyName = "BvD Organization", KeyPrefix = "BvD.organization", Grouping = EntityType.Organization };
-                vocabId = vocabularyRepository.AddVocabularyAsync(context, newVocab).GetAwaiter().GetResult();
+                vocabId = vocabularyRepository.AddVocabularyAsync(context, newVocab, context.Organization.Id, Guid.Empty).GetAwaiter().GetResult();
                 vocabularyRepository.ActivateVocabularyAsync(context, vocabId).GetAwaiter().GetResult();
             }
             else
