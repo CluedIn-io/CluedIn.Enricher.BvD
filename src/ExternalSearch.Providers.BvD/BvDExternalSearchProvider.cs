@@ -1038,7 +1038,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
         {
             var vocabularyRepository = context.ApplicationContext.Container.Resolve<IPrivateVocabularyRepository>();
             var bvdOrganizationVocabulary = new BvDOrganizationVocabulary();
-            var existingVocabKey = vocabularyRepository.GetVocabularyKeyByFullName(bvdOrganizationVocabulary.KeyPrefix + bvdOrganizationVocabulary.KeySeparator + label);
+            var existingVocabKey = vocabularyRepository.GetVocabularyKeyByFullNameAsync(context, bvdOrganizationVocabulary.KeyPrefix + bvdOrganizationVocabulary.KeySeparator + label).GetAwaiter().GetResult();
             if (existingVocabKey == null)
             {
                 var newVocabKey = new AddVocabularyKeyModel
@@ -1051,8 +1051,8 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
                     IsVisible = true,
                     Storage = VocabularyKeyStorage.Keyword
                 };
-                var vocabKeyId = vocabularyRepository.AddVocabularyKey(newVocabKey, context, Guid.Empty.ToString()).GetAwaiter().GetResult();
-                vocabularyRepository.ActivateVocabularyKey(context, vocabKeyId).GetAwaiter().GetResult();
+                var vocabKeyId = vocabularyRepository.AddVocabularyKeyAsync(context, newVocabKey).GetAwaiter().GetResult();
+                vocabularyRepository.ActivateVocabularyKeyAsync(context, vocabKeyId).GetAwaiter().GetResult();
             }
             context.ApplicationContext.System.Cache.SetItem(cacheKey, new object(), DateTimeOffset.Now.AddMinutes(1));
         }
@@ -1071,14 +1071,13 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
         {
             var vocabularyRepository = context.ApplicationContext.Container.Resolve<IPrivateVocabularyRepository>();
 
-            var vocab = vocabularyRepository.GetVocabularyByKeyPrefix("BvD.organization");
-
+            var vocab = context.Organization.Vocabularies.GetVocabularyByKeyPrefixAsync(context, "BvD.organization").GetAwaiter().GetResult();
             Guid vocabId;
             if (vocab == null)
             {
                 var newVocab = new AddVocabularyModel { VocabularyName = "BvD Organization", KeyPrefix = "BvD.organization", Grouping = EntityType.Organization };
-                vocabId = vocabularyRepository.AddVocabulary(newVocab, Guid.Empty.ToString(), context.Organization.Id).GetAwaiter().GetResult();
-                vocabularyRepository.ActivateVocabulary(context, vocabId).GetAwaiter().GetResult();
+                vocabId = vocabularyRepository.AddVocabularyAsync(context, newVocab, context.Organization.Id, Guid.Empty).GetAwaiter().GetResult();
+                vocabularyRepository.ActivateVocabularyAsync(context, vocabId).GetAwaiter().GetResult();
             }
             else
             {
