@@ -510,7 +510,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
                 if (!matchCompanies.Any())
                 {
                     context.Log.LogInformation($"No match found when auto-match enabled. Skipping search execution - {Name}.");
-                    yield break;
+                    throw new Exception("No match found when auto-match enabled. Skipping enrichment.");
                 }
 
                 if (!isAutoMatch)
@@ -546,6 +546,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
                     else
                     {
                         context.Log.LogInformation($"No bvd id provided with auto-match disabled. Skipping search execution - {Name}.");
+                        throw new Exception("No bvd id provided with auto-match disabled. Skipping enrichment.");
                     }
 
                     yield break;
@@ -575,7 +576,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
             if (!matchCompanies.Any())
             {
                 context.Log.LogInformation($"No match found for validation. Skipping search execution - {Name}.");
-                yield break;
+                throw new Exception("No match found for validation. Skipping enrichment.");
             }
 
             // If bvd id exist in the list of possible match companies (PASS)
