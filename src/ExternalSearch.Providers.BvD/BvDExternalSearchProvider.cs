@@ -243,7 +243,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
             Select = _selectMatchFields
         };
 
-        var matchRequest = new RestRequest("match", Method.POST);
+        var matchRequest = new RestRequest("match", Method.Post);
         matchRequest.AddHeader("Content-Type", "application/json");
         matchRequest.AddHeader("ApiToken", jobData.ApiToken);
         matchRequest.AddJsonBody(bvdMatchesRequestBody);
@@ -266,7 +266,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
                 : null
         };
 
-        var request = new RestRequest("data", Method.POST);
+        var request = new RestRequest("data", Method.Post);
         request.AddHeader("Content-Type", "application/json");
         request.AddHeader("ApiToken", jobData.ApiToken);
         request.AddJsonBody(bvdRequest);
@@ -727,7 +727,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
             Select = _selectMatchFields
         };
 
-        var request = new RestRequest("match", Method.POST);
+        var request = new RestRequest("match", Method.Post);
         request.AddHeader("Content-Type", "application/json");
         request.AddHeader("ApiToken", jobData.ApiToken);
         request.AddJsonBody(bvdRequest);
@@ -808,7 +808,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
                     : null
             };
 
-            var request = new RestRequest("data", Method.POST);
+            var request = new RestRequest("data", Method.Post);
             request.AddHeader("Content-Type", "application/json");
             request.AddHeader("ApiToken", apiToken);
             request.AddJsonBody(bvdRequest);
@@ -873,7 +873,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
         return null;
     }
 
-    private ConnectionVerificationResult ConstructVerifyConnectionResponse<T>(IRestResponse<T> response)
+    private ConnectionVerificationResult ConstructVerifyConnectionResponse<T>(RestResponse<T> response)
     {
         try
         {
