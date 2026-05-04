@@ -24,9 +24,7 @@
 
         MUST SPECIFY IN CSPROJ AS <PackageReference Name="<depName>" />
     -->
-    <!--    <PackageReference Update="CluedIn.Crawling" Version="$(_CluedIn)" />-->
     <PackageReference Update="CluedIn.Core" Version="$(_CluedIn)" />
-    <!--    <PackageReference Update="CluedIn.Core.Agent" Version="$(_CluedIn)" />-->
     <PackageReference Update="CluedIn.ExternalSearch" Version="$(_CluedIn)" />
     <PackageReference Update="CluedIn.Integration.PrivateServices" Version="$(_CluedIn)" />
   </ItemGroup>
