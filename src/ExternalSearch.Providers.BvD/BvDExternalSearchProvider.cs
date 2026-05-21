@@ -138,7 +138,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
                    query, request, result))
         {
             var resultItem = result.As<BvDResponse>();
-            var code = new EntityCode(request.EntityMetaData.OriginEntityCode.Type, "BVD", $"{query.QueryKey}{request.EntityMetaData.OriginEntityCode}".ToDeterministicGuid());
+            var code = new EntityCode(request.EntityMetaData.EntityType, "BVD", $"{query.QueryKey}{request.EntityMetaData.OriginEntityCode}".ToDeterministicGuid());
             var clue = new Clue(code, context.Organization);
 
             PopulateMetadata(context, clue.Data.EntityData, resultItem, request);
@@ -946,7 +946,8 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
         IExternalSearchRequest request)
     {
         var data = resultItem.Data.Data.First();
-        var code = new EntityCode(request.EntityMetaData.OriginEntityCode.Type, "BVD", $"{request.Queries.FirstOrDefault()?.QueryKey}{request.EntityMetaData.OriginEntityCode}".ToDeterministicGuid());
+        var queryKey = request.Queries.FirstOrDefault(x => x.Id == resultItem.QueryId)?.QueryKey ?? request.Queries.FirstOrDefault()?.QueryKey;
+        var code = new EntityCode(request.EntityMetaData.EntityType, "BVD", $"{queryKey}{request.EntityMetaData.OriginEntityCode}".ToDeterministicGuid());
 
         metadata.EntityType = request.EntityMetaData.EntityType;
         metadata.Name = request.EntityMetaData.Name;
