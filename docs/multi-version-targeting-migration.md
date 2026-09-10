@@ -124,11 +124,16 @@ Highest pre-existing tag is `4.7.1` at `2026-06-17T17:26:48+10:00`; padded to `2
 (2+ days past it, matching the margin every repo in this effort has needed since
 `GitVersion.Tool 5.9.0` appears to compare `commits-before` against local machine time, not UTC).
 
-**Note for the next migration:** on this box, `dotnet-gitversion` (the pinned 5.9.0, installed to a
-scratch tool-path) threw `System.InvalidOperationException: Gitversion could not determine which
-branch to treat as the development branch` when run against the feature branch immediately after
-`git checkout -b feature/multi-version-targeting origin/develop` with **zero commits yet** (branch
-tip identical to `origin/develop`). This resolved once the migration's first commit was made -
-GitVersion.yml's `MajorMinorPatch` verification below was done post-commit, not pre-commit. If this
-recurs on a future repo, commit first, then verify.
+**New gotcha for local GitVersion verification (not a CI issue, a local-testing one):** running the
+pinned `dotnet-gitversion 5.9.0` against `feature/multi-version-targeting` threw
+`System.InvalidOperationException: Gitversion could not determine which branch to treat as the
+development branch` — even after committing. Root cause: this repo (like several others cloned a
+while ago) only had `origin/develop` as a remote-tracking ref, no **local** branch literally named
+`develop` (`git branch -a` showed no plain `develop` row, only `remotes/origin/develop`).
+GitVersion's branch-config inheritance apparently requires a local branch matching the configured
+`develop` name to classify a `feature/*` branch's parent correctly. Fixed by creating one:
+`git branch develop origin/develop` (never checked out, purely so GitVersion can see it) — verified
+`MajorMinorPatch: "1.0.0"` immediately after. Real CI checks out branches differently and is
+unaffected; this only matters when verifying GitVersion locally on a repo whose local clone predates
+`develop` existing as a normal local branch.
 
