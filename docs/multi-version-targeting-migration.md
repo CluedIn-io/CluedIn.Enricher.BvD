@@ -137,3 +137,31 @@ GitVersion's branch-config inheritance apparently requires a local branch matchi
 unaffected; this only matters when verifying GitVersion locally on a repo whose local clone predates
 `develop` existing as a normal local branch.
 
+---
+
+## Step 7 — Push and confirm CI
+
+Status: **Done**
+
+Pushed PR #51 — **fully green on the first push**, build 151987: all three `Multi-version
+build+test` legs (4.7.0, 4.8.0, 5.0.0-beta.*) and `Multi-version: publish` passed. No separate
+`Integration tests` legs ran — `runIntegrationTests` stayed at its pre-existing default of `false`
+(unchanged from the original pipeline); the one integration test class is fully gated behind
+`#if BVD_DEV` (never defined) regardless, so this isn't a coverage change, and both test projects
+were still compiled and their (placeholder) tests run as part of each build+test leg itself,
+verified locally via `dotnet test` beforehand.
+
+---
+
+## Checklist
+
+- [x] `azure-pipelines.yml` — switched to `crawler.build.jobs.yml` with `multiVersionCluedInTargets` (4.7.0, 4.8.0, 5.0.0-beta.*); dead `integration-test.ps1` reference removed
+- [x] `Directory.Build.props` — honours `CluedInMultiVersionTargetFramework`; `DefineConstants` derived; `LangVersion` pinned to 13.0
+- [x] `Packages.props` — `_CluedIn` guarded; test packages split by `CLUEDIN_V50`; `CluedIn.Testing.Base` referenced via suffixed package ID
+- [x] `NuGet.config` — renamed from `Nuget.config`
+- [x] `test/Directory.Build.props` + `Integration.Tests.csproj` — xunit v2/v3 split; suffixed `CluedIn.Testing.Base` reference
+- [x] Source — RestSharp 106-vs-114 guards (`HttpPostMethod` const, `ConstructVerifyConnectionResponse<T>` signature)
+- [x] `GitVersion.yml` — `next-version: 1.0`; `commits-before` merged into the existing `ignore:` block; verified `MajorMinorPatch: "1.0.0"` with the pinned GitVersion.Tool 5.9.0
+- [x] Local verification — `dotnet build` (0 errors) and `dotnet test` (all pass) on all three legs
+- [x] Pushed branch and confirmed CI green end-to-end — PR #51, build 151987, first push, all three legs + publish passed
+
