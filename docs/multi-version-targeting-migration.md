@@ -151,6 +151,15 @@ build+test` legs (4.7.0, 4.8.0, 5.0.0-beta.*) and `Multi-version: publish` passe
 were still compiled and their (placeholder) tests run as part of each build+test leg itself,
 verified locally via `dotnet test` beforehand.
 
+**Re-confirmed (2026-09-11), as part of a repo-wide audit of disabled integration tests:** re-ran
+`dotnet test` on the integration test project standalone — `Total: 1, Passed: 1` — the only thing
+that ever runs is `Dummy.ShouldPass()`, a no-op placeholder. All 5 real test methods in
+`BvDTests.cs` remain behind `#if BVD_DEV` (never defined), and even if that guard were lifted,
+`ApiToken` is hardcoded to `""` — an empty string, not a real (even if possibly-stale) credential
+like VatLayer's turned out to be. Enabling `runIntegrationTests` here would still provide zero real
+coverage; genuinely fixing this needs someone with an actual BvD (Bureau van Dijk/Moody's) API
+credential, which isn't something available to reconstruct from the repo itself. Left at `false`.
+
 ---
 
 ## Checklist
