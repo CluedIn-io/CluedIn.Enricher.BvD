@@ -1,5 +1,11 @@
 mode: ContinuousDeployment
-next-version: 5.0
+# The CluedIn version is now encoded in the published package suffix (e.g. .470/.480/.500 - see
+# crawler.build.jobs.yml), so this repo's own version no longer needs to track CluedIn. Reset to
+# 1.0. next-version alone isn't enough - GitVersion still sees the old 4.x tags in history and
+# treats them as dominant - so commits-before skips everything up to and including the highest
+# pre-existing tag (4.7.1, 2026-06-17T17:26:48+10:00), padded 2+ days past it (GitVersion.Tool
+# 5.9.0 appears to compare this against local machine time, not UTC).
+next-version: 1.0
 branches:
   master:
     mode: ContinuousDelivery
@@ -26,4 +32,5 @@ branches:
     - develop
 ignore:
   sha: []
+  commits-before: 2026-06-20T00:00:00
 

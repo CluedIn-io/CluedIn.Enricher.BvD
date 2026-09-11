@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
-    <PackageReference Include="CluedIn.Testing.Base" />
+    <PackageReference Include="CluedIn.Testing.Base.$(_CluedInPackageSuffix)" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\..\src\ExternalSearch.Providers.BvD\ExternalSearch.Providers.BvD.csproj" />

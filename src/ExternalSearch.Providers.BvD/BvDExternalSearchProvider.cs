@@ -38,6 +38,14 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
      * FIELDS
      **********************************************************************************************************/
 
+    // RestSharp's Method enum is PascalCase (Method.Post) from v107+ (CluedIn 5.0's RestSharp
+    // 114.0.0) but legacy all-caps (Method.POST) before that (CluedIn 4.7/4.8's RestSharp 106.15.0).
+#if CLUEDIN_V50
+    private const Method HttpPostMethod = Method.Post;
+#else
+    private const Method HttpPostMethod = Method.POST;
+#endif
+
     private static readonly EntityType[] _defaultAcceptedEntityTypes = [EntityType.Organization];
     private static readonly List<string> _selectMatchFields =
     [
@@ -243,7 +251,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
             Select = _selectMatchFields
         };
 
-        var matchRequest = new RestRequest("match", Method.Post);
+        var matchRequest = new RestRequest("match", HttpPostMethod);
         matchRequest.AddHeader("Content-Type", "application/json");
         matchRequest.AddHeader("ApiToken", jobData.ApiToken);
         matchRequest.AddJsonBody(bvdMatchesRequestBody);
@@ -266,7 +274,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
                 : null
         };
 
-        var request = new RestRequest("data", Method.Post);
+        var request = new RestRequest("data", HttpPostMethod);
         request.AddHeader("Content-Type", "application/json");
         request.AddHeader("ApiToken", jobData.ApiToken);
         request.AddJsonBody(bvdRequest);
@@ -727,7 +735,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
             Select = _selectMatchFields
         };
 
-        var request = new RestRequest("match", Method.Post);
+        var request = new RestRequest("match", HttpPostMethod);
         request.AddHeader("Content-Type", "application/json");
         request.AddHeader("ApiToken", jobData.ApiToken);
         request.AddJsonBody(bvdRequest);
@@ -808,7 +816,7 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
                     : null
             };
 
-            var request = new RestRequest("data", Method.Post);
+            var request = new RestRequest("data", HttpPostMethod);
             request.AddHeader("Content-Type", "application/json");
             request.AddHeader("ApiToken", apiToken);
             request.AddJsonBody(bvdRequest);
@@ -873,7 +881,11 @@ public class BvDExternalSearchProvider : ExternalSearchProviderBase, IExtendedEn
         return null;
     }
 
+#if CLUEDIN_V50
     private ConnectionVerificationResult ConstructVerifyConnectionResponse<T>(RestResponse<T> response)
+#else
+    private ConnectionVerificationResult ConstructVerifyConnectionResponse<T>(IRestResponse<T> response)
+#endif
     {
         try
         {
