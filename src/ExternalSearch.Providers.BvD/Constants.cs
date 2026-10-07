@@ -47,6 +47,73 @@ public static class Constants
 
     public static readonly Guid ProviderId = Guid.Parse("{3BBF55F5-56BB-4E9A-A9B1-44FC2F0A307E}");
 
+    // The vocabulary key fields that describe a company for a match by name. The name is required, the rest improves the match.
+    private static readonly string[] NameMatchRequiredFields = [KeyName.Name];
+
+    private static readonly string[] NameMatchFields =
+    [
+        .. NameMatchRequiredFields,
+        KeyName.Country,
+        KeyName.Address,
+        KeyName.City,
+        KeyName.PostCode,
+        KeyName.State,
+        KeyName.Website,
+        KeyName.Email,
+        KeyName.Phone,
+        KeyName.Fax,
+        KeyName.NationalId,
+        KeyName.Ticker,
+        KeyName.Isin,
+    ];
+
+    /// <summary>
+    /// The ways this enricher can be set up, so the UI can let the user choose one. Each strategy lists the vocabulary key
+    /// fields it uses, which of them are required, and the settings it implies. It only guides the configuration:
+    /// at run time the enricher still picks the query by which keys have a value on the record.
+    /// </summary>
+    public static readonly Dictionary<string, object>[] EnrichmentStrategies =
+    [
+        new()
+        {
+            ["id"] = "bvdId",
+            ["label"] = "BvD ID",
+            ["description"] = "Enrich the company directly with its BvD ID. No other input is needed.",
+            ["fields"] = new[] { KeyName.BvDId },
+            ["requiredFields"] = new[] { KeyName.BvDId },
+            ["settings"] = new Dictionary<string, object>(),
+            ["options"] = new[]
+            {
+                new Dictionary<string, object>
+                {
+                    ["setting"] = KeyName.ValidateBvDId,
+                    ["label"] = "Validate BvD ID",
+                    ["description"] = "Toggle to control whether the BvD ID needs to be validated before enrichment.",
+                    ["default"] = false,
+                },
+            },
+        },
+        new()
+        {
+            ["id"] = "nameMatch",
+            ["label"] = "Name match",
+            ["description"] = "Find the company by its name and other details, then enrich it. Uses the Orbis match endpoint.",
+            ["fields"] = NameMatchFields,
+            ["requiredFields"] = NameMatchRequiredFields,
+            ["settings"] = new Dictionary<string, object>(),
+            ["options"] = new[]
+            {
+                new Dictionary<string, object>
+                {
+                    ["setting"] = KeyName.MatchFirstAndHighest,
+                    ["label"] = "Auto Enrich with First and Highest Score Match",
+                    ["description"] = "Toggle to control whether the enrichment should be based on the first and highest score match if BvD ID validation failed or BvD ID is empty.",
+                    ["default"] = false,
+                },
+            },
+        },
+    ];
+
     public static string About { get; set; } =
         "Orbis is the most powerful comparable data resource on private companies—and it covers listed companies too.";
 
@@ -118,7 +185,11 @@ public static class Constants
             IsRequired = true,
             Name = KeyName.SelectProperties,
             Help =
-                "The properties that should be returned to CluedIn as a result of enrichment (e.g., NAME,CITY,ADDRESS_LINE1)."
+                "The properties that should be returned to CluedIn as a result of enrichment (e.g., NAME,CITY,ADDRESS_LINE1). See [how to get more properties](https://documentation.cluedin.net/preparation/enricher/bvd#available-enrichment-properties-from-bvd-api:~:text=ID%20is%20empty.-,Enrichment%20properties,-%E2%80%93%20the%20properties%20that).",
+            Options = new Dictionary<string, object>
+            {
+                { "defaultValue", "NAME,CITY,ADDRESS_LINE1" }
+            }
         },
         new()
         {

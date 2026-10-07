@@ -48,6 +48,7 @@ public class BvDSearchProviderProvider : ProviderBase, IExtendedProviderMetadata
         { "vocabKeyPrefix", BvDVocabulary.Organization.KeyPrefix },
         { "autoSubmission", false },
         { "dataSourceSetId", string.Empty },
+        { "enrichmentStrategies", Constants.EnrichmentStrategies }, // for UI
     };
     public Dictionary<string, HashSet<string>> ValidRequiredFieldConfigurationCombinations => new() {
         { "Name", [Constants.KeyName.Name] },
