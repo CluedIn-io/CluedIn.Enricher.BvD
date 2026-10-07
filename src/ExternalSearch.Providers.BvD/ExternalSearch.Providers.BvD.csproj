@@ -13,7 +13,4 @@
     <PackageReference Include="CluedIn.ExternalSearch" />
     <PackageReference Include="CluedIn.Integration.PrivateServices" />
   </ItemGroup>
-  <PropertyGroup>
-    <LangVersion>preview</LangVersion>
-  </PropertyGroup>
 </Project>
