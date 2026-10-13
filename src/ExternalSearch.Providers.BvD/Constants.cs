@@ -122,6 +122,47 @@ public static class Constants
     public static string Domain { get; set; } =
         "https://www.moodys.com/web/en/us/capabilities/company-reference-data/orbis.html";
 
+    private static Dictionary<string, object> CreateFieldGroup(string id, string label, params string[] fields) => new()
+    {
+        ["id"] = id,
+        ["label"] = label,
+        ["fields"] = fields,
+    };
+
+    /// <summary>
+    /// The sections the UI groups the configuration fields into, in order. Fields no group lists
+    /// (such as the filter and rate limit settings added by CluedIn) go to the last group.
+    /// </summary>
+    public static readonly Dictionary<string, object>[] FieldGroups =
+    [
+        CreateFieldGroup("connection", "Connection", KeyName.ApiToken),
+        CreateFieldGroup("whatToEnrich", "What to enrich", KeyName.AcceptedEntityType, "enricherRuleCondition"),
+        CreateFieldGroup(
+            "fieldMapping",
+            "Field mapping",
+            KeyName.BvDId,
+            KeyName.Name,
+            KeyName.Country,
+            KeyName.Address,
+            KeyName.City,
+            KeyName.PostCode,
+            KeyName.State,
+            KeyName.Website,
+            KeyName.Email,
+            KeyName.Phone,
+            KeyName.Fax,
+            KeyName.NationalId,
+            KeyName.Ticker,
+            KeyName.Isin),
+        CreateFieldGroup(
+            "advanced",
+            "Advanced",
+            KeyName.ValidateBvDId,
+            KeyName.MatchFirstAndHighest,
+            KeyName.SelectProperties,
+            KeyName.ScoreLimit),
+    ];
+
     public static IEnumerable<Control> Properties { get; set; } = new List<Control>
     {
         //new()
